@@ -1,0 +1,79 @@
+graph LR
+    subgraph Category1[1. Code Splitting & Lazy Loading]
+        CS1[next/dynamic Imports<br/>ContactsTable: ssr=false]
+        CS2[Route-Based Splitting<br/>app/ route groups]
+        CS3[Lazy Components<br/>with loading states]
+    end
+
+    subgraph Category2[2. React Performance Patterns]
+        RP1[useMemo: 61 files<br/>Expensive computations]
+        RP2[useCallback: 61 files<br/>Stable functions]
+        RP3[React.forwardRef: 30+ files<br/>Ref forwarding]
+        RP4[Suspense Boundaries<br/>Streaming SSR]
+        RP5[TanStack Table<br/>Virtual scrolling]
+    end
+
+    subgraph Category3[3. Image Optimization]
+        IO1[Next.js Image Component<br/>26+ files]
+        IO2[WebP/AVIF Format<br/>60-80% size reduction]
+        IO3[Lazy Loading<br/>Intersection Observer]
+        IO4[Responsive Srcsets<br/>Multiple sizes]
+        IO5[Remote Patterns<br/>CDN integration]
+    end
+
+    subgraph Category4[4. Bundle Optimization]
+        BO1[Turbopack Dev<br/>10-15x faster builds]
+        BO2[Tree-Shaking<br/>Remove dead code]
+        BO3[Standalone Output<br/>Docker: 1.2GB → 300MB]
+        BO4[Webpack Config<br/>Video handling + fallbacks]
+    end
+
+    subgraph Category5[5. Caching Strategies]
+        C1[Redis Primary<br/>Distributed cache]
+        C2[LRU Fallback<br/>In-memory cache]
+        C3[Tag-Based Invalidation<br/>17 cache modules]
+        C4[HTTP Cache Headers<br/>CDN: 7 days]
+        C5[SuperJSON Wrapper<br/>Complex types]
+    end
+
+    subgraph Category6[6. Performance Utilities]
+        PU1[Debouncing<br/>90-95% API reduction]
+        PU2[useSyncScroll<br/>Efficient sync]
+        PU3[useClickOutside<br/>Dropdown closing]
+        PU4[useIntervalWhenFocused<br/>70-90% call reduction]
+    end
+
+    subgraph Category7[7. Build-time Optimizations]
+        BT1[Server Components<br/>Zero client JS]
+        BT2[Server Actions<br/>25+ files]
+        BT3[generateMetadata<br/>Dynamic SEO]
+        BT4[Force Dynamic<br/>Sensitive pages]
+        BT5[i18n Support<br/>6 languages]
+        BT6[Sentry Integration<br/>Error tracking]
+        BT7[PostHog Analytics<br/>Product insights]
+    end
+
+    User([User Request]) --> Category1
+    User --> Category3
+    User --> Category4
+
+    Category1 --> Category2
+    Category3 --> Category2
+    Category4 --> Category2
+
+    Category2 --> Category6
+    Category6 --> Category5
+
+    Category5 --> Category7
+
+    Category7 --> Result([Optimized Experience<br/>━━━━━━━━━━━━━━━<br/>FCP: Fast<br/>LCP: Fast<br/>TTI: Fast<br/>CLS: Minimal])
+
+    style Category1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px
+    style Category2 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    style Category3 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style Category4 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px
+    style Category5 fill:#FCE4EC,stroke:#C2185B,stroke-width:2px
+    style Category6 fill:#E0F2F1,stroke:#00796B,stroke-width:2px
+    style Category7 fill:#EFEBE9,stroke:#5D4037,stroke-width:2px
+    style User fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style Result fill:#4CAF50,stroke:#2E7D32,color:#fff

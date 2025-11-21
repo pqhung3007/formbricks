@@ -1,0 +1,82 @@
+graph TB
+    Start([User Request]) --> CDN{CDN / Edge Network}
+
+    CDN -->|Cache Hit| CachedAsset[Serve Cached Asset<br/>- Static Assets 7 days<br/>- SDK Files 1h browser / 7d CDN<br/>- stale-while-revalidate]
+    CDN -->|Cache Miss| NextServer[Next.js Server<br/>App Router + Middleware]
+
+    CachedAsset --> UserBrowser([User Browser])
+
+    NextServer --> RouteAnalysis{Route Type?}
+
+    RouteAnalysis -->|Static Route| StaticGen[Static Generation<br/>- Pre-rendered at build<br/>- Metadata optimization<br/>- SEO-friendly]
+    RouteAnalysis -->|Dynamic Route| ServerComponent[Server Components<br/>- Zero client JS<br/>- Server Actions<br/>- Data fetching on server]
+    RouteAnalysis -->|Force Dynamic| DynamicRender[Dynamic Rendering<br/>- Always fresh data<br/>- Session-aware<br/>- Billing/sensitive pages]
+
+    StaticGen --> CacheLayer
+    ServerComponent --> CacheLayer
+    DynamicRender --> CacheLayer
+
+    CacheLayer{Cache Handler<br/>Custom Multi-Layer}
+
+    CacheLayer -->|Check Primary| Redis[(Redis Cache<br/>- TTL: 7 days<br/>- Distributed<br/>- Prefix: fb:<br/>- Timeout: 1s)]
+    CacheLayer -->|Fallback| LRU[(LRU In-Memory<br/>- Max Age: 24h<br/>- Process-local<br/>- Fast access)]
+
+    Redis -->|Cache Hit| TagCache[Tag-Based Cache<br/>- 17 cache modules<br/>- Granular invalidation<br/>- Relationship-aware]
+    Redis -->|Cache Miss| Database
+    LRU -->|Cache Hit| TagCache
+    LRU -->|Cache Miss| Database
+
+    Database[(PostgreSQL<br/>via Prisma ORM)] --> DataProcess[Data Processing<br/>- SuperJSON serialization<br/>- Zod validation<br/>- Type safety]
+
+    DataProcess --> StoreCache[Store in Cache<br/>with Tags]
+    StoreCache --> TagCache
+
+    TagCache --> HTMLGen[HTML Generation<br/>- Server Components<br/>- Streaming SSR<br/>- Suspense boundaries]
+
+    HTMLGen --> InitialResponse[Initial HTML Response<br/>FCP Optimized<br/>Core Web Vitals]
+
+    InitialResponse --> UserBrowser
+
+    UserBrowser --> Hydration{Client-Side<br/>Hydration}
+
+    Hydration --> JSLoading[JavaScript Loading<br/>━━━━━━━━━━━━━━━━━━━━]
+
+    JSLoading --> CodeSplit[Code Splitting<br/>- Route-based automatic<br/>- next/dynamic imports<br/>- Lazy loading]
+
+    CodeSplit --> BundleOpt[Bundle Optimization<br/>- Turbopack dev builds<br/>- Webpack prod builds<br/>- Tree-shaking<br/>- Standalone output]
+
+    BundleOpt --> ImageOpt[Image Optimization<br/>- Next.js Image component<br/>- WebP/AVIF format<br/>- Lazy loading<br/>- Responsive srcsets<br/>- 26+ optimized files]
+
+    ImageOpt --> ReactPerf[React Performance<br/>━━━━━━━━━━━━━━━━━━━━]
+
+    ReactPerf --> Memoization[Memoization Patterns<br/>- useMemo 61 files<br/>- useCallback 61 files<br/>- React.forwardRef 30+ files<br/>- Suspense boundaries]
+
+    Memoization --> PerfUtils[Performance Utilities<br/>- Debouncing lodash<br/>- useSyncScroll hook<br/>- useClickOutside hook<br/>- useIntervalWhenFocused]
+
+    PerfUtils --> DataRender[Efficient Data Rendering<br/>- TanStack Table<br/>- Virtual scrolling ready<br/>- Memoized computations]
+
+    DataRender --> Interactive[Interactive Application<br/>✓ Time to Interactive<br/>✓ Largest Contentful Paint<br/>✓ First Input Delay<br/>✓ Cumulative Layout Shift]
+
+    Interactive --> Monitoring[Background Monitoring<br/>━━━━━━━━━━━━━━━━━━━━]
+
+    Monitoring --> Sentry[Sentry Error Tracking<br/>- Session replay<br/>- Performance monitoring<br/>- Error grouping]
+
+    Monitoring --> PostHog[PostHog Analytics<br/>- Feature usage<br/>- User behavior<br/>- A/B testing]
+
+    Sentry --> End([Optimized User<br/>Experience])
+    PostHog --> End
+
+    style Start fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style CDN fill:#2196F3,stroke:#1565C0,color:#fff
+    style Redis fill:#DC382D,stroke:#A52A2A,color:#fff
+    style LRU fill:#FF9800,stroke:#E65100,color:#fff
+    style Database fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style UserBrowser fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style End fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style Interactive fill:#00BCD4,stroke:#006064,color:#fff
+    style CodeSplit fill:#FF5722,stroke:#BF360C,color:#fff
+    style ImageOpt fill:#FF5722,stroke:#BF360C,color:#fff
+    style ReactPerf fill:#FF5722,stroke:#BF360C,color:#fff
+    style Monitoring fill:#607D8B,stroke:#37474F,color:#fff
+    style JSLoading fill:#FF5722,stroke:#BF360C,color:#fff
+    style TagCache fill:#FFC107,stroke:#F57C00,color:#000

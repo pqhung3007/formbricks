@@ -1,6 +1,5 @@
-import { replaceQuestionPresetPlaceholders } from "@/lib/utils/templates";
 import { createId } from "@paralleldrive/cuid2";
-import { TFnType } from "@tolgee/react";
+import { TFunction } from "i18next";
 import {
   ArrowUpFromLineIcon,
   CalendarDaysIcon,
@@ -39,6 +38,8 @@ import {
   TSurveyRankingQuestion,
   TSurveyRatingQuestion,
 } from "@formbricks/types/surveys/types";
+import { createI18nString } from "@/lib/i18n/utils";
+import { replaceQuestionPresetPlaceholders } from "@/lib/utils/templates";
 
 export type TQuestion = {
   id: string;
@@ -48,19 +49,19 @@ export type TQuestion = {
   preset: any;
 };
 
-export const getQuestionTypes = (t: TFnType): TQuestion[] => [
+export const getQuestionTypes = (t: TFunction): TQuestion[] => [
   {
     id: QuestionId.OpenText,
     label: t("templates.free_text"),
     description: t("templates.free_text_description"),
     icon: MessageSquareTextIcon,
     preset: {
-      headline: { default: "" },
-      placeholder: { default: t("templates.free_text_placeholder") },
+      headline: createI18nString("", []),
+      placeholder: createI18nString(t("templates.free_text_placeholder"), []),
       longAnswer: true,
       inputType: "text",
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyOpenTextQuestion>,
   },
   {
@@ -69,20 +70,20 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.single_select_description"),
     icon: Rows3Icon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       choices: [
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
       ],
       shuffleOption: "none",
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyMultipleChoiceQuestion>,
   },
   {
@@ -91,24 +92,24 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.multi_select_description"),
     icon: ListIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       choices: [
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
       ],
       shuffleOption: "none",
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyMultipleChoiceQuestion>,
   },
   {
@@ -117,11 +118,11 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.picture_selection_description"),
     icon: ImageIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       allowMulti: true,
       choices: [],
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyPictureSelectionQuestion>,
   },
   {
@@ -130,13 +131,13 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.rating_description"),
     icon: StarIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       scale: "star",
       range: 5,
-      lowerLabel: { default: t("templates.rating_lower_label") },
-      upperLabel: { default: t("templates.rating_upper_label") },
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      lowerLabel: createI18nString(t("templates.rating_lower_label"), []),
+      upperLabel: createI18nString(t("templates.rating_upper_label"), []),
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyRatingQuestion>,
   },
   {
@@ -145,11 +146,11 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.nps_description"),
     icon: PresentationIcon,
     preset: {
-      headline: { default: "" },
-      lowerLabel: { default: t("templates.nps_lower_label") },
-      upperLabel: { default: t("templates.nps_upper_label") },
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      headline: createI18nString("", []),
+      lowerLabel: createI18nString(t("templates.nps_lower_label"), []),
+      upperLabel: createI18nString(t("templates.nps_upper_label"), []),
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyNPSQuestion>,
   },
   {
@@ -158,21 +159,19 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.ranking_description"),
     icon: ListOrderedIcon,
     preset: {
-      headline: {
-        default: "",
-      },
+      headline: createI18nString("", []),
       choices: [
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
         {
           id: createId(),
-          label: { default: "" },
+          label: createI18nString("", []),
         },
       ],
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyRankingQuestion>,
   },
   {
@@ -181,13 +180,17 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.matrix_description"),
     icon: Grid3X3Icon,
     preset: {
-      headline: {
-        default: "",
-      },
-      rows: [{ default: "" }, { default: "" }],
-      columns: [{ default: "" }, { default: "" }],
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      headline: createI18nString("", []),
+      rows: [
+        { id: createId(), label: createI18nString("", []) },
+        { id: createId(), label: createI18nString("", []) },
+      ],
+      columns: [
+        { id: createId(), label: createI18nString("", []) },
+        { id: createId(), label: createI18nString("", []) },
+      ],
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
       shuffleOption: "none",
     } as Partial<TSurveyMatrixQuestion>,
   },
@@ -197,14 +200,12 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.cta_description"),
     icon: MousePointerClickIcon,
     preset: {
-      headline: { default: "" },
-      html: {
-        default: "",
-      },
-      buttonLabel: { default: t("templates.book_interview") },
+      headline: createI18nString("", []),
+      subheader: createI18nString("", []),
+      buttonLabel: createI18nString(t("templates.book_interview"), []),
       buttonExternal: false,
-      dismissButtonLabel: { default: t("templates.skip") },
-      backButtonLabel: { default: t("templates.back") },
+      dismissButtonLabel: createI18nString(t("templates.skip"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyCTAQuestion>,
   },
   {
@@ -213,11 +214,11 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.consent_description"),
     icon: CheckIcon,
     preset: {
-      headline: { default: "" },
-      html: { default: "" },
-      label: { default: "" },
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      headline: createI18nString("", []),
+      subheader: createI18nString("", []),
+      label: createI18nString("", []),
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyConsentQuestion>,
   },
   {
@@ -226,10 +227,10 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.file_upload_description"),
     icon: ArrowUpFromLineIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       allowMultipleFiles: false,
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyFileUploadQuestion>,
   },
   {
@@ -238,10 +239,10 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.date_description"),
     icon: CalendarDaysIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       format: "M-d-y",
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyDateQuestion>,
   },
   {
@@ -250,10 +251,10 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.schedule_a_meeting_description"),
     icon: PhoneIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       calUserName: "rick/get-rick-rolled",
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyCalQuestion>,
   },
   {
@@ -262,15 +263,15 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.address_description"),
     icon: HomeIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       addressLine1: { show: true, required: true, placeholder: { default: "Address Line 1" } },
       addressLine2: { show: true, required: true, placeholder: { default: "Address Line 2" } },
       city: { show: true, required: true, placeholder: { default: "City" } },
       state: { show: true, required: true, placeholder: { default: "State" } },
       zip: { show: true, required: true, placeholder: { default: "Zip" } },
       country: { show: true, required: true, placeholder: { default: "Country" } },
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyAddressQuestion>,
   },
   {
@@ -279,19 +280,19 @@ export const getQuestionTypes = (t: TFnType): TQuestion[] => [
     description: t("templates.contact_info_description"),
     icon: ContactIcon,
     preset: {
-      headline: { default: "" },
+      headline: createI18nString("", []),
       firstName: { show: true, required: true, placeholder: { default: "First Name" } },
       lastName: { show: true, required: true, placeholder: { default: "Last Name" } },
       email: { show: true, required: true, placeholder: { default: "Email" } },
       phone: { show: true, required: true, placeholder: { default: "Phone" } },
       company: { show: true, required: true, placeholder: { default: "Company" } },
-      buttonLabel: { default: t("templates.next") },
-      backButtonLabel: { default: t("templates.back") },
+      buttonLabel: createI18nString(t("templates.next"), []),
+      backButtonLabel: createI18nString(t("templates.back"), []),
     } as Partial<TSurveyContactInfoQuestion>,
   },
 ];
 
-export const getCXQuestionTypes = (t: TFnType) =>
+export const getCXQuestionTypes = (t: TFunction) =>
   getQuestionTypes(t).filter((questionType) => {
     return [
       TSurveyQuestionTypeEnum.OpenText,
@@ -304,7 +305,7 @@ export const getCXQuestionTypes = (t: TFnType) =>
     ].includes(questionType.id as TSurveyQuestionTypeEnum);
   });
 
-export const getQuestionIconMap = (t: TFnType): Record<TSurveyQuestionTypeEnum, JSX.Element> =>
+export const getQuestionIconMap = (t: TFunction): Record<TSurveyQuestionTypeEnum, JSX.Element> =>
   getQuestionTypes(t).reduce(
     (prev, curr) => ({
       ...prev,
@@ -313,7 +314,7 @@ export const getQuestionIconMap = (t: TFnType): Record<TSurveyQuestionTypeEnum, 
     {} as Record<TSurveyQuestionTypeEnum, JSX.Element>
   );
 
-export const getQuestionNameMap = (t: TFnType) =>
+export const getQuestionNameMap = (t: TFunction) =>
   getQuestionTypes(t).reduce(
     (prev, curr) => ({
       ...prev,
@@ -322,7 +323,7 @@ export const getQuestionNameMap = (t: TFnType) =>
     {}
   ) as Record<TSurveyQuestionTypeEnum, string>;
 
-export const getQuestionIcon = (type: TSurveyQuestionTypeEnum, t: TFnType) => {
+export const getQuestionIcon = (type: TSurveyQuestionTypeEnum, t: TFunction) => {
   return getQuestionTypes(t).find((questionType) => questionType.id === type)?.icon;
 };
 
@@ -331,7 +332,7 @@ export const VARIABLES_ICON_MAP = {
   number: <FileDigitIcon className="h-4 w-4" />,
 };
 
-export const getCXQuestionNameMap = (t: TFnType) =>
+export const getCXQuestionNameMap = (t: TFunction) =>
   getCXQuestionTypes(t).reduce(
     (prev, curr) => ({
       ...prev,
@@ -341,15 +342,15 @@ export const getCXQuestionNameMap = (t: TFnType) =>
   ) as Record<TSurveyQuestionTypeEnum, string>;
 
 export const universalQuestionPresets = {
-  required: true,
+  required: false,
 };
 
-export const getQuestionDefaults = (id: string, project: any, t: TFnType) => {
+export const getQuestionDefaults = (id: string, project: any, t: TFunction) => {
   const questionType = getQuestionTypes(t).find((questionType) => questionType.id === id);
   return replaceQuestionPresetPlaceholders(questionType?.preset, project);
 };
 
-export const getTSurveyQuestionTypeEnumName = (id: string, t: TFnType) => {
+export const getTSurveyQuestionTypeEnumName = (id: string, t: TFunction) => {
   const questionType = getQuestionTypes(t).find((questionType) => questionType.id === id);
   return questionType?.label;
 };

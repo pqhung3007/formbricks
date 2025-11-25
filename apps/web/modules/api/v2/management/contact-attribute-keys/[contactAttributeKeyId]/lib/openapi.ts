@@ -1,11 +1,11 @@
+import { z } from "zod";
+import { ZodOpenApiOperationObject } from "zod-openapi";
+import { ZContactAttributeKey } from "@formbricks/database/zod/contact-attribute-keys";
 import {
   ZContactAttributeKeyIdSchema,
   ZContactAttributeKeyUpdateSchema,
 } from "@/modules/api/v2/management/contact-attribute-keys/[contactAttributeKeyId]/types/contact-attribute-keys";
 import { makePartialSchema } from "@/modules/api/v2/types/openapi-response";
-import { z } from "zod";
-import { ZodOpenApiOperationObject } from "zod-openapi";
-import { ZContactAttributeKey } from "@formbricks/database/zod/contact-attribute-keys";
 
 export const getContactAttributeKeyEndpoint: ZodOpenApiOperationObject = {
   operationId: "getContactAttributeKey",
@@ -16,7 +16,7 @@ export const getContactAttributeKeyEndpoint: ZodOpenApiOperationObject = {
       id: ZContactAttributeKeyIdSchema,
     }),
   },
-  tags: ["Management API > Contact Attribute Keys"],
+  tags: ["Management API - Contact Attribute Keys"],
   responses: {
     "200": {
       description: "Contact attribute key retrieved successfully.",
@@ -33,7 +33,7 @@ export const updateContactAttributeKeyEndpoint: ZodOpenApiOperationObject = {
   operationId: "updateContactAttributeKey",
   summary: "Update a contact attribute key",
   description: "Updates a contact attribute key in the database.",
-  tags: ["Management API > Contact Attribute Keys"],
+  tags: ["Management API - Contact Attribute Keys"],
   requestParams: {
     path: z.object({
       id: ZContactAttributeKeyIdSchema,
@@ -64,7 +64,7 @@ export const deleteContactAttributeKeyEndpoint: ZodOpenApiOperationObject = {
   operationId: "deleteContactAttributeKey",
   summary: "Delete a contact attribute key",
   description: "Deletes a contact attribute key from the database.",
-  tags: ["Management API > Contact Attribute Keys"],
+  tags: ["Management API - Contact Attribute Keys"],
   requestParams: {
     path: z.object({
       id: ZContactAttributeKeyIdSchema,

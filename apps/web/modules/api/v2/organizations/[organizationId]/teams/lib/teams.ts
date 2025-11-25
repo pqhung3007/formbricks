@@ -1,7 +1,7 @@
 import "server-only";
-import { teamCache } from "@/lib/cache/team";
-import { organizationCache } from "@/lib/organization/cache";
-import { captureTelemetry } from "@/lib/telemetry";
+import { Team } from "@prisma/client";
+import { prisma } from "@formbricks/database";
+import { Result, err, ok } from "@formbricks/types/error-handlers";
 import { getTeamsQuery } from "@/modules/api/v2/organizations/[organizationId]/teams/lib/utils";
 import {
   TGetTeamsFilter,
@@ -9,16 +9,11 @@ import {
 } from "@/modules/api/v2/organizations/[organizationId]/teams/types/teams";
 import { ApiErrorResponseV2 } from "@/modules/api/v2/types/api-error";
 import { ApiResponseWithMeta } from "@/modules/api/v2/types/api-success";
-import { Team } from "@prisma/client";
-import { prisma } from "@formbricks/database";
-import { Result, err, ok } from "@formbricks/types/error-handlers";
 
 export const createTeam = async (
   teamInput: TTeamInput,
   organizationId: string
 ): Promise<Result<Team, ApiErrorResponseV2>> => {
-  captureTelemetry("team created");
-
   const { name } = teamInput;
 
   try {
@@ -27,14 +22,6 @@ export const createTeam = async (
         name,
         organizationId,
       },
-    });
-
-    organizationCache.revalidate({
-      id: organizationId,
-    });
-
-    teamCache.revalidate({
-      organizationId: organizationId,
     });
 
     return ok(team);

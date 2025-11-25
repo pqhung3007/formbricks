@@ -1,19 +1,27 @@
 "use server";
 
-import { actionClient } from "@/lib/utils/action-client";
-import { getOrganizationIdFromSurveyId } from "@/lib/utils/helper";
-import { getOrganizationLogoUrl } from "@/modules/ee/whitelabel/email-customization/lib/organization";
-import { sendLinkSurveyToVerifiedEmail } from "@/modules/email";
-import { getSurvey } from "@/modules/survey/lib/survey";
-import { isSurveyResponsePresent } from "@/modules/survey/link/lib/response";
-import { getSurveyPin } from "@/modules/survey/link/lib/survey";
 import { z } from "zod";
 import { ZLinkSurveyEmailData } from "@formbricks/types/email";
 import { InvalidInputError, ResourceNotFoundError } from "@formbricks/types/errors";
+import { actionClient } from "@/lib/utils/action-client";
+import { getOrganizationIdFromSurveyId } from "@/lib/utils/helper";
+import { applyIPRateLimit } from "@/modules/core/rate-limit/helpers";
+import { rateLimitConfigs } from "@/modules/core/rate-limit/rate-limit-configs";
+import { getOrganizationLogoUrl } from "@/modules/ee/whitelabel/email-customization/lib/organization";
+import { sendLinkSurveyToVerifiedEmail } from "@/modules/email";
+import { getSurveyWithMetadata, isSurveyResponsePresent } from "@/modules/survey/link/lib/data";
 
 export const sendLinkSurveyEmailAction = actionClient
   .schema(ZLinkSurveyEmailData)
   .action(async ({ parsedInput }) => {
+    await applyIPRateLimit(rateLimitConfigs.actions.sendLinkSurveyEmail);
+
+    const survey = await getSurveyWithMetadata(parsedInput.surveyId);
+
+    if (!survey.isVerifyEmailEnabled) {
+      throw new InvalidInputError("EMAIL_VERIFICATION_NOT_ENABLED");
+    }
+
     const organizationId = await getOrganizationIdFromSurveyId(parsedInput.surveyId);
     const organizationLogoUrl = await getOrganizationLogoUrl(organizationId);
 
@@ -29,14 +37,14 @@ const ZValidateSurveyPinAction = z.object({
 export const validateSurveyPinAction = actionClient
   .schema(ZValidateSurveyPinAction)
   .action(async ({ parsedInput }) => {
-    const surveyPin = await getSurveyPin(parsedInput.surveyId);
-    if (!surveyPin) {
+    // Get survey data which includes pin information
+    const survey = await getSurveyWithMetadata(parsedInput.surveyId);
+    if (!survey) {
       throw new ResourceNotFoundError("Survey", parsedInput.surveyId);
     }
 
-    const originalPin = surveyPin.toString();
-
-    const survey = await getSurvey(parsedInput.surveyId);
+    const surveyPin = survey.pin;
+    const originalPin = surveyPin?.toString();
 
     if (!originalPin) return { survey };
     if (originalPin !== parsedInput.pin) {
@@ -54,5 +62,5 @@ const ZIsSurveyResponsePresentAction = z.object({
 export const isSurveyResponsePresentAction = actionClient
   .schema(ZIsSurveyResponsePresentAction)
   .action(async ({ parsedInput }) => {
-    return await isSurveyResponsePresent(parsedInput.surveyId, parsedInput.email);
+    return await isSurveyResponsePresent(parsedInput.surveyId, parsedInput.email)();
   });

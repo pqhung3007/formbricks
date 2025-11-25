@@ -1,3 +1,6 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { OrganizationAccessType } from "@formbricks/types/api-key";
 import { authenticatedApiClient } from "@/modules/api/v2/auth/authenticated-api-client";
 import { responses } from "@/modules/api/v2/lib/response";
 import { handleApiError } from "@/modules/api/v2/lib/utils";
@@ -8,9 +11,6 @@ import {
   ZTeamInput,
 } from "@/modules/api/v2/organizations/[organizationId]/teams/types/teams";
 import { ZOrganizationIdSchema } from "@/modules/api/v2/organizations/[organizationId]/types/organizations";
-import { NextRequest } from "next/server";
-import { z } from "zod";
-import { OrganizationAccessType } from "@formbricks/types/api-key";
 
 export const GET = async (request: NextRequest, props: { params: Promise<{ organizationId: string }> }) =>
   authenticatedApiClient({
@@ -46,19 +46,30 @@ export const POST = async (request: Request, props: { params: Promise<{ organiza
       params: z.object({ organizationId: ZOrganizationIdSchema }),
     },
     externalParams: props.params,
-    handler: async ({ authentication, parsedInput: { body, params } }) => {
+    handler: async ({ authentication, parsedInput: { body, params }, auditLog }) => {
       if (!hasOrganizationIdAndAccess(params!.organizationId, authentication, OrganizationAccessType.Write)) {
-        return handleApiError(request, {
-          type: "unauthorized",
-          details: [{ field: "organizationId", issue: "unauthorized" }],
-        });
+        return handleApiError(
+          request,
+          {
+            type: "unauthorized",
+            details: [{ field: "organizationId", issue: "unauthorized" }],
+          },
+          auditLog
+        );
       }
 
       const createTeamResult = await createTeam(body!, authentication.organizationId);
       if (!createTeamResult.ok) {
-        return handleApiError(request, createTeamResult.error);
+        return handleApiError(request, createTeamResult.error, auditLog);
+      }
+
+      if (auditLog) {
+        auditLog.targetId = createTeamResult.data.id;
+        auditLog.newObject = createTeamResult.data;
       }
 
       return responses.createdResponse({ data: createTeamResult.data });
     },
+    action: "created",
+    targetType: "team",
   });

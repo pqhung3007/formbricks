@@ -1,21 +1,21 @@
 "use client";
 
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { Project } from "@prisma/client";
+import { PlusIcon, XCircleIcon } from "lucide-react";
+import Link from "next/link";
+import { type JSX, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TAllowedFileExtension, ZAllowedFileExtension } from "@formbricks/types/storage";
+import { TSurvey, TSurveyFileUploadQuestion } from "@formbricks/types/surveys/types";
+import { TUserLocale } from "@formbricks/types/user";
 import { createI18nString, extractLanguageCodes } from "@/lib/i18n/utils";
 import { QuestionFormInput } from "@/modules/survey/components/question-form-input";
 import { AdvancedOptionToggle } from "@/modules/ui/components/advanced-option-toggle";
 import { Button } from "@/modules/ui/components/button";
 import { Input } from "@/modules/ui/components/input";
 import { useGetBillingInfo } from "@/modules/utils/hooks/useGetBillingInfo";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { Project } from "@prisma/client";
-import { useTranslate } from "@tolgee/react";
-import { PlusIcon, XCircleIcon } from "lucide-react";
-import Link from "next/link";
-import { type JSX, useMemo, useState } from "react";
-import { toast } from "react-hot-toast";
-import { TAllowedFileExtension, ZAllowedFileExtension } from "@formbricks/types/common";
-import { TSurvey, TSurveyFileUploadQuestion } from "@formbricks/types/surveys/types";
-import { TUserLocale } from "@formbricks/types/user";
 
 interface FileUploadFormProps {
   localSurvey: TSurvey;
@@ -28,6 +28,8 @@ interface FileUploadFormProps {
   isInvalid: boolean;
   isFormbricksCloud: boolean;
   locale: TUserLocale;
+  isStorageConfigured: boolean;
+  isExternalUrlsAllowed?: boolean;
 }
 
 export const FileUploadQuestionForm = ({
@@ -41,9 +43,11 @@ export const FileUploadQuestionForm = ({
   setSelectedLanguageCode,
   isFormbricksCloud,
   locale,
+  isStorageConfigured = true,
+  isExternalUrlsAllowed,
 }: FileUploadFormProps): JSX.Element => {
   const [extension, setExtension] = useState("");
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [isMaxSizeError, setMaxSizeError] = useState(false);
   const {
     billingInfo,
@@ -99,7 +103,7 @@ export const FileUploadQuestionForm = ({
   const removeExtension = (event, index: number) => {
     event.preventDefault();
     if (question.allowedFileExtensions) {
-      const updatedExtensions = [...question?.allowedFileExtensions];
+      const updatedExtensions = [...(question.allowedFileExtensions || [])];
       updatedExtensions.splice(index, 1);
       // Ensure array is set to undefined if empty, matching toggle behavior
       updateQuestion(questionIdx, {
@@ -142,6 +146,9 @@ export const FileUploadQuestionForm = ({
         selectedLanguageCode={selectedLanguageCode}
         setSelectedLanguageCode={setSelectedLanguageCode}
         locale={locale}
+        isStorageConfigured={isStorageConfigured}
+        autoFocus={!question.headline?.default || question.headline.default.trim() === ""}
+        isExternalUrlsAllowed={isExternalUrlsAllowed}
       />
       <div ref={parent}>
         {question.subheader !== undefined && (
@@ -158,6 +165,9 @@ export const FileUploadQuestionForm = ({
                 selectedLanguageCode={selectedLanguageCode}
                 setSelectedLanguageCode={setSelectedLanguageCode}
                 locale={locale}
+                isStorageConfigured={isStorageConfigured}
+                autoFocus={!question.subheader?.default || question.subheader.default.trim() === ""}
+                isExternalUrlsAllowed={isExternalUrlsAllowed}
               />
             </div>
           </div>
@@ -178,7 +188,7 @@ export const FileUploadQuestionForm = ({
           </Button>
         )}
       </div>
-      <div className="mt-6 mb-8 space-y-6">
+      <div className="mb-8 mt-6 space-y-6">
         <AdvancedOptionToggle
           isChecked={question.allowMultipleFiles}
           onToggle={() => updateQuestion(questionIdx, { allowMultipleFiles: !question.allowMultipleFiles })}
@@ -218,7 +228,7 @@ export const FileUploadQuestionForm = ({
 
                   updateQuestion(questionIdx, { maxSizeInMB: parseInt(e.target.value, 10) });
                 }}
-                className="mr-2 ml-2 inline w-20 bg-white text-center text-sm"
+                className="ml-2 mr-2 inline w-20 bg-white text-center text-sm"
               />
               MB
             </p>

@@ -7,38 +7,47 @@ servers:
   - url: https://app.formbricks.com/api/v2
     description: Formbricks Cloud
 tags:
+  - name: Health
+    description: Operations for checking critical application dependencies health status.
   - name: Roles
     description: Operations for managing roles.
   - name: Me
     description: Operations for managing your API key.
-  - name: Management API > Responses
+  - name: Management API - Responses
     description: Operations for managing responses.
-  - name: Management API > Contacts
+  - name: Management API - Contacts
     description: Operations for managing contacts.
-  - name: Management API > Contact Attributes
+  - name: Management API - Contact Attributes
     description: Operations for managing contact attributes.
-  - name: Management API > Contact Attributes Keys
-    description: Operations for managing contact attributes keys.
-  - name: Management API > Surveys
+  - name: Management API - Contact Attribute Keys
+    description: Operations for managing contact attribute keys.
+  - name: Management API - Surveys
     description: Operations for managing surveys.
-  - name: Management API > Surveys > Contact Links
+  - name: Management API - Surveys - Contact Links
     description: Operations for generating personalized survey links for contacts.
-  - name: Management API > Webhooks
+  - name: Management API - Webhooks
     description: Operations for managing webhooks.
-  - name: Organizations API > Teams
+  - name: Organizations API - Teams
     description: Operations for managing teams.
-  - name: Organizations API > Project Teams
+  - name: Organizations API - Project Teams
     description: Operations for managing project teams.
-  - name: Organizations API > Users
+  - name: Organizations API - Users
     description: Operations for managing users.
 security:
   - apiKeyAuth: []
 paths:
-  /responses/{responseId}:
+  /client/{environmentId}/responses/{responseId}:
     put:
+      security: []
       description: Update an existing response for example when you want to mark a
         response as finished or you want to change an existing response's value.
       parameters:
+        - in: path
+          name: environmentId
+          required: true
+          schema:
+            type: string
+          description: The ID of the environment.
         - in: path
           name: responseId
           required: true
@@ -75,22 +84,57 @@ paths:
           description: Not Found
       summary: Update Response
       tags:
-        - Client API > Response
+        - Client API - Response
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/responses:
+  /client/{environmentId}/responses:
     post:
+      security: []
       description: Create a response for a survey and its fields with the user's
         responses. The userId & meta here is optional
       requestBody:
         content:
           application/json:
             schema:
+              type: object
+              properties:
+                surveyId:
+                  type: string
+                  description: The ID of the survey this response belongs to
+                responses:
+                  type: object
+                  additionalProperties: true
+                  description: Answers keyed by questionId; value shape depends on question type
+                finished:
+                  type: boolean
+                  description: Whether the response is marked as finished
+                language:
+                  type: string
+                  enum:
+                    [
+                      "en-US",
+                      "de-DE",
+                      "pt-BR",
+                      "fr-FR",
+                      "zh-Hant-TW",
+                      "pt-PT",
+                      "ro-RO",
+                      "ja-JP",
+                      "zh-Hans-CN",
+                    ]
+                  description: Locale of the response
+                meta:
+                  type: object
+                  properties:
+                    action: { type: string }
+                    source: { type: string }
+                    url: { type: string }
+                  description: Optional metadata about the response
+              required: ["surveyId"]
               example:
                 surveyId: survey123
                 responses: {}
-              type: object
       responses:
         "201":
           content:
@@ -102,12 +146,13 @@ paths:
           description: Created
       summary: Create Response
       tags:
-        - Client API > Response
+        - Client API - Response
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/contacts/{userId}/attributes:
+  /client/{environmentId}/contacts/{userId}/attributes:
     put:
+      security: []
       description: Update a contact's attributes in Formbricks to keep them in sync
         with your app or when you want to set a custom attribute in Formbricks.
       parameters:
@@ -125,9 +170,15 @@ paths:
         content:
           application/json:
             schema:
+              type: object
+              properties:
+                attributes:
+                  type: object
+                  additionalProperties: true
+                  description: Key-value pairs of contact attributes
+              required: ["attributes"]
               example:
                 attributes: {}
-              type: object
       responses:
         "200":
           content:
@@ -150,12 +201,13 @@ paths:
           description: Internal Server Error
       summary: Update Contact (Attributes)
       tags:
-        - Client API > Contacts
+        - Client API - Contacts
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/identify/contacts/{userId}:
+  /client/{environmentId}/identify/contacts/{userId}:
     get:
+      security: []
       description: Retrieves a contact's state including their segments, displays,
         responses and other tracking information. If the contact doesn't exist,
         it will be created.
@@ -182,12 +234,13 @@ paths:
           description: OK
       summary: Get Contact State
       tags:
-        - Client API > Contacts
+        - Client API - Contacts
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/displays:
+  /client/{environmentId}/displays:
     post:
+      security: []
       description: Create a new display for a valid survey ID. If a userId is passed,
         the display is linked to the user.
       requestBody:
@@ -209,45 +262,26 @@ paths:
           description: Created
       summary: Create Display
       tags:
-        - Client API > Display
+        - Client API - Display
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/displays/{displayId}:
-    put:
-      description: Update a Display for a user. A use case can be when a user submits
-        a response & you want to link it to an existing display.
+  /client/{environmentId}/environment:
+    get:
+      security: []
+      description: "Retrieves the environment state to be used in Formbricks SDKs.
+        **Cache Behavior**: This endpoint uses server-side caching with a
+        **5-minute TTL (Time To Live)**. Any changes to surveys, action classes,
+        project settings, or other environment data will take up to 5 minutes to
+        reflect in the API response. This caching is implemented to improve
+        performance for high-frequency SDK requests."
       parameters:
         - in: path
-          name: displayId
+          name: environmentId
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              example:
-                responseId: response123
-              type: object
-      responses:
-        "200":
-          content:
-            application/json:
-              example:
-                displayId: display123
-              schema:
-                type: object
-          description: OK
-      summary: Update Display
-      tags:
-        - Client API > Display
-      servers:
-        - url: https://app.formbricks.com/api/v2/client
-          description: Formbricks Client
-  /{environmentId}/environment:
-    get:
-      description: Retrieves the environment state to be used in Formbricks SDKs
+          description: The ID of the environment.
       responses:
         "200":
           content:
@@ -260,12 +294,13 @@ paths:
           description: OK
       summary: Get Environment State
       tags:
-        - Client API > Environment
+        - Client API - Environment
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/user:
+  /client/{environmentId}/user:
     post:
+      security: []
       description: Endpoint for creating or identifying a user within the specified
         environment. If the user already exists, this will identify them and
         potentially update user attributes. If they don't exist, it will create
@@ -290,12 +325,13 @@ paths:
           description: OK
       summary: Create or Identify User
       tags:
-        - Client API > User
+        - Client API - User
       servers:
-        - url: https://app.formbricks.com/api/v2/client
+        - url: https://app.formbricks.com/api/v2
           description: Formbricks Client
-  /{environmentId}/storage:
+  /client/{environmentId}/storage:
     post:
+      security: []
       summary: Upload Private File
       description: API endpoint for uploading private files. Uploaded files are kept
         private so that only users with access to the specified environment can
@@ -303,7 +339,7 @@ paths:
         type from the request body, and returns a signed URL for S3 uploads
         along with a local upload URL.
       tags:
-        - Client API > File Upload
+        - Client API - File Upload
       parameters:
         - in: path
           name: environmentId
@@ -337,8 +373,8 @@ paths:
                 fileType: image/jpeg
       responses:
         "200":
-          description: OK - Returns the signed URL, signing data, updated file name, and
-            file URL.
+          description: OK - Returns the signed URL, presigned fields, updated file name,
+            and file URL.
           content:
             application/json:
               schema:
@@ -349,19 +385,12 @@ paths:
                     properties:
                       signedUrl:
                         type: string
-                        description: Signed URL for uploading the file to local storage.
-                      signingData:
+                        description: Presigned POST URL for uploading the file to S3-compatible storage.
+                      presignedFields:
                         type: object
-                        properties:
-                          signature:
-                            type: string
-                            description: Signature for verifying the upload.
-                          timestamp:
-                            type: number
-                            description: Timestamp used in the signature.
-                          uuid:
-                            type: string
-                            description: Unique identifier for the signed upload.
+                        additionalProperties:
+                          type: string
+                        description: Presigned POST form fields required by S3-compatible storage.
                       updatedFileName:
                         type: string
                         description: The updated file name after processing.
@@ -370,13 +399,13 @@ paths:
                         description: URL where the uploaded file can be accessed.
                 example:
                   data:
-                    signedUrl: http://localhost:3000/api/v1/client/cm1ubebtj000614kqe4hs3c67/storage/local
-                    signingData:
-                      signature: 3e51c6f441e646a0c9a47fdcdd25eee9bfac26d5506461d811b9c55cbdd90914
-                      timestamp: 1741693207760
-                      uuid: f48bcb1aad904f574069a253388024af
-                    updatedFileName: halle--fid--b153ba3e-6602-4bb3-bed9-211b5b1ae463.jpg
-                    fileUrl: http://localhost:3000/storage/cm1ubebtj000614kqe4hs3c67/private/halle--fid--b153ba3e-6602-4bb3-bed9-211b5b1ae463.jpg
+                    signedUrl: https://s3.example.com/bucket
+                    presignedFields:
+                      key: uploads/env-id/private/file--fid--uuid.jpg
+                      policy: <base64-policy>
+                      x-amz-algorithm: AWS4-HMAC-SHA256
+                    updatedFileName: file--fid--b153ba3e-6602-4bb3-bed9-211b5b1ae463.jpg
+                    fileUrl: https://app.formbricks.com/storage/cm1ubebtj000614kqe4hs3c67/private/file--fid--b153ba3e-6602-4bb3-bed9-211b5b1ae463.jpg
         "400":
           description: Bad Request - One or more required fields are missing.
           content:
@@ -402,137 +431,38 @@ paths:
                 example:
                   error: Survey survey123 not found
       servers:
-        - url: https://app.formbricks.com/api/v2/client
-          description: Formbricks API Server
-  /{environmentId}/storage/local:
-    post:
-      summary: Upload Private File to Local Storage
-      description: API endpoint for uploading private files to local storage. The
-        request must include a valid signature, UUID, and timestamp to verify
-        the upload. The file is provided as a Base64 encoded string in the
-        request body. The "Content-Type" header must be set to a valid MIME
-        type, and the file data must be a valid file object (buffer).
-      tags:
-        - Client API > File Upload
-      parameters:
-        - in: path
-          name: environmentId
-          required: true
-          schema:
-            type: string
-          description: The ID of the environment.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                surveyId:
-                  type: string
-                  description: The ID of the survey associated with the file.
-                fileName:
-                  type: string
-                  description: The URI encoded file name.
-                fileType:
-                  type: string
-                  description: The MIME type of the file.
-                signature:
-                  type: string
-                  description: Signed signature for verifying the file upload.
-                uuid:
-                  type: string
-                  description: Unique identifier used in the signature validation.
-                timestamp:
-                  type: string
-                  description: Timestamp used in the signature validation.
-                fileBase64String:
-                  type: string
-                  description: Base64 encoded string of the file. It should include data type
-                    information, e.g.
-                    "data:<mime-type>;base64,<base64-encoded-data>".
-              required:
-                - surveyId
-                - fileName
-                - fileType
-                - signature
-                - uuid
-                - timestamp
-                - fileBase64String
-              example:
-                surveyId: survey123
-                fileName: example.jpg
-                fileType: image/jpeg
-                signature: signedSignatureValue
-                uuid: uniqueUuidValue
-                timestamp: "1627891234567"
-                fileBase64String: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/...
-      responses:
-        "200":
-          description: OK - File uploaded successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    description: Success message.
-                example:
-                  message: File uploaded successfully
-        "400":
-          description: Bad Request - One or more required fields are missing or the file
-            is too large.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Detailed error message.
-                example:
-                  error: fileName is required
-        "401":
-          description: Unauthorized - Signature validation failed or required signature
-            fields are missing.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Detailed error message.
-                example:
-                  error: Unauthorized
-        "404":
-          description: Not Found - The specified survey or organization does not exist.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Detailed error message.
-                example:
-                  error: Survey survey123 not found
-        "500":
-          description: Internal Server Error - File upload failed.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Detailed error message.
-                example:
-                  error: File upload failed
-      servers:
         - url: https://app.formbricks.com/api/v2
           description: Formbricks API Server
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Check the health status of critical application dependencies
+        including database and cache.
+      operationId: healthCheck
+      security: []
+      responses:
+        "200":
+          description: Health check completed successfully. Check individual dependency
+            status in response data.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  main_database:
+                    type: boolean
+                    description: Main database connection status - true if database is reachable and
+                      running
+                    example: true
+                  cache_database:
+                    type: boolean
+                    description: Cache database connection status - true if cache database is
+                      reachable and running
+                    example: true
+                title: Health Check Response
+                description: Health check status for critical application dependencies
   /roles:
     get:
       operationId: getRoles
@@ -630,7 +560,7 @@ paths:
       summary: Get responses
       description: Gets responses from the database.
       tags:
-        - Management API > Responses
+        - Management API - Responses
       parameters:
         - in: query
           name: limit
@@ -681,6 +611,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
         - in: query
           name: surveyId
           schema:
@@ -843,7 +783,7 @@ paths:
       summary: Create a response
       description: Creates a response in the database.
       tags:
-        - Management API > Responses
+        - Management API - Responses
       requestBody:
         required: true
         description: The response to create
@@ -1067,7 +1007,7 @@ paths:
       summary: Get a response
       description: Gets a response from the database.
       tags:
-        - Management API > Responses
+        - Management API - Responses
       parameters:
         - in: path
           name: id
@@ -1194,7 +1134,7 @@ paths:
       summary: Update a response
       description: Updates a response in the database.
       tags:
-        - Management API > Responses
+        - Management API - Responses
       parameters:
         - in: path
           name: id
@@ -1404,7 +1344,7 @@ paths:
       summary: Delete a response
       description: Deletes a response from the database.
       tags:
-        - Management API > Responses
+        - Management API - Responses
       parameters:
         - in: path
           name: id
@@ -1531,12 +1471,17 @@ paths:
     put:
       operationId: uploadBulkContacts
       summary: Upload Bulk Contacts
-      description: Uploads contacts in bulk
+      description: Uploads contacts in bulk. Each contact in the payload must have an
+        'email' attribute present in their attributes array. The email attribute
+        is mandatory and must be a valid email format. Without a valid email,
+        the contact will be skipped during processing.
       tags:
-        - Management API > Contacts
+        - Management API - Contacts
       requestBody:
         required: true
-        description: The contacts to upload
+        description: The contacts to upload. Each contact must include an 'email'
+          attribute in their attributes array. The email is used as the unique
+          identifier for the contact.
         content:
           application/json:
             schema:
@@ -1571,10 +1516,39 @@ paths:
                             - value
                     required:
                       - attributes
-                  maxItems: 1000
+                  maxItems: 250
               required:
                 - environmentId
                 - contacts
+            example:
+              environmentId: env_01h2xce9q8p3w4x5y6z7a8b9c0
+              contacts:
+                - attributes:
+                    - attributeKey:
+                        key: email
+                        name: Email Address
+                      value: john.doe@example.com
+                    - attributeKey:
+                        key: firstName
+                        name: First Name
+                      value: John
+                    - attributeKey:
+                        key: lastName
+                        name: Last Name
+                      value: Doe
+                - attributes:
+                    - attributeKey:
+                        key: email
+                        name: Email Address
+                      value: jane.smith@example.com
+                    - attributeKey:
+                        key: firstName
+                        name: First Name
+                      value: Jane
+                    - attributeKey:
+                        key: lastName
+                        name: Last Name
+                      value: Smith
       responses:
         "200":
           description: Contacts uploaded successfully.
@@ -1627,6 +1601,69 @@ paths:
                       - skippedContacts
                 required:
                   - data
+  /contacts:
+    servers: *a6
+    post:
+      operationId: createContact
+      summary: Create a contact
+      description: Creates a contact in the database. Each contact must have a valid
+        email address in the attributes. All attribute keys must already exist
+        in the environment. The email is used as the unique identifier along
+        with the environment.
+      tags:
+        - Management API - Contacts
+      requestBody:
+        required: true
+        description: The contact to create. Must include an email attribute and all
+          attribute keys must already exist in the environment.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environmentId:
+                  type: string
+                attributes:
+                  type: object
+                  additionalProperties:
+                    type: string
+              required:
+                - environmentId
+                - attributes
+            example:
+              environmentId: env_01h2xce9q8p3w4x5y6z7a8b9c0
+              attributes:
+                email: john.doe@example.com
+                firstName: John
+                lastName: Doe
+                userId: h2xce9q8p3w4x5y6z7a8b9c1
+      responses:
+        "201":
+          description: Contact created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  createdAt:
+                    type: string
+                  environmentId:
+                    type: string
+                  attributes:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                id: ctc_01h2xce9q8p3w4x5y6z7a8b9c2
+                createdAt: 2023-01-01T12:00:00.000Z
+                environmentId: env_01h2xce9q8p3w4x5y6z7a8b9c0
+                attributes:
+                  email: john.doe@example.com
+                  firstName: John
+                  lastName: Doe
+                  userId: h2xce9q8p3w4x5y6z7a8b9c1
   /contact-attribute-keys:
     servers: *a6
     get:
@@ -1634,7 +1671,7 @@ paths:
       summary: Get contact attribute keys
       description: Gets contact attribute keys from the database.
       tags:
-        - Management API > Contact Attribute Keys
+        - Management API - Contact Attribute Keys
       parameters:
         - in: query
           name: limit
@@ -1681,6 +1718,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
         - in: query
           name: environmentId
           description: The environment ID to filter by
@@ -1755,7 +1802,7 @@ paths:
       summary: Create a contact attribute key
       description: Creates a contact attribute key in the database.
       tags:
-        - Management API > Contact Attribute Keys
+        - Management API - Contact Attribute Keys
       requestBody:
         required: true
         description: The contact attribute key to create
@@ -1819,7 +1866,7 @@ paths:
       summary: Get a contact attribute key
       description: Gets a contact attribute key from the database.
       tags:
-        - Management API > Contact Attribute Keys
+        - Management API - Contact Attribute Keys
       parameters:
         - in: path
           name: id
@@ -1881,7 +1928,7 @@ paths:
       summary: Update a contact attribute key
       description: Updates a contact attribute key in the database.
       tags:
-        - Management API > Contact Attribute Keys
+        - Management API - Contact Attribute Keys
       parameters:
         - in: path
           name: id
@@ -1950,7 +1997,7 @@ paths:
       summary: Delete a contact attribute key
       description: Deletes a contact attribute key from the database.
       tags:
-        - Management API > Contact Attribute Keys
+        - Management API - Contact Attribute Keys
       parameters:
         - in: path
           name: id
@@ -2014,7 +2061,7 @@ paths:
       summary: Get personalized survey link for a contact
       description: Retrieves a personalized link for a specific survey.
       tags:
-        - Management API > Surveys > Contact Links
+        - Management API - Surveys - Contact Links
       parameters:
         - in: path
           name: surveyId
@@ -2030,6 +2077,17 @@ paths:
             type: string
             description: The ID of the contact
           required: true
+        - in: query
+          name: expirationDays
+          description: Number of days until the generated JWT expires. If not provided,
+            there is no expiration.
+          schema:
+            type:
+              - number
+              - undefined
+            minimum: 1
+            description: Number of days until the generated JWT expires. If not provided,
+              there is no expiration.
       responses:
         "200":
           description: Personalized survey link retrieved successfully.
@@ -2044,6 +2102,11 @@ paths:
                       surveyUrl:
                         type: string
                         format: uri
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: The date and time the link expires, null if no expiration
                     required:
                       - surveyUrl
   /surveys/{surveyId}/contact-links/segments/{segmentId}:
@@ -2053,7 +2116,7 @@ paths:
       summary: Get survey links for contacts in a segment
       description: Generates personalized survey links for contacts in a segment.
       tags:
-        - Management API > Surveys > Contact Links
+        - Management API - Surveys - Contact Links
       parameters:
         - in: path
           name: surveyId
@@ -2152,7 +2215,7 @@ paths:
       summary: Get webhooks
       description: Gets webhooks from the database.
       tags:
-        - Management API > Webhooks
+        - Management API - Webhooks
       parameters:
         - in: query
           name: limit
@@ -2199,6 +2262,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
         - in: query
           name: surveyIds
           schema:
@@ -2257,6 +2330,7 @@ paths:
                               - responseFinished
                               - responseCreated
                               - responseUpdated
+                          minItems: 1
                           description: The triggers of the webhook
                         surveyIds:
                           type: array
@@ -2277,7 +2351,7 @@ paths:
       summary: Create a webhook
       description: Creates a webhook in the database.
       tags:
-        - Management API > Webhooks
+        - Management API - Webhooks
       requestBody:
         required: true
         description: The webhook to create
@@ -2307,6 +2381,7 @@ paths:
                   items:
                     type: string
                     enum: *a10
+                  minItems: 1
                   description: The triggers of the webhook
                 surveyIds:
                   type: array
@@ -2360,6 +2435,7 @@ paths:
                     items:
                       type: string
                       enum: *a10
+                    minItems: 1
                     description: The triggers of the webhook
                   surveyIds:
                     type: array
@@ -2373,7 +2449,7 @@ paths:
       summary: Get a webhook
       description: Gets a webhook from the database.
       tags:
-        - Management API > Webhooks
+        - Management API - Webhooks
       parameters:
         - in: path
           name: id
@@ -2421,6 +2497,7 @@ paths:
                     items:
                       type: string
                       enum: *a10
+                    minItems: 1
                     description: The triggers of the webhook
                   surveyIds:
                     type: array
@@ -2432,7 +2509,7 @@ paths:
       summary: Update a webhook
       description: Updates a webhook in the database.
       tags:
-        - Management API > Webhooks
+        - Management API - Webhooks
       parameters:
         - in: path
           name: id
@@ -2469,6 +2546,7 @@ paths:
                   items:
                     type: string
                     enum: *a10
+                  minItems: 1
                   description: The triggers of the webhook
                 surveyIds:
                   type: array
@@ -2522,6 +2600,7 @@ paths:
                     items:
                       type: string
                       enum: *a10
+                    minItems: 1
                     description: The triggers of the webhook
                   surveyIds:
                     type: array
@@ -2533,7 +2612,7 @@ paths:
       summary: Delete a webhook
       description: Deletes a webhook from the database.
       tags:
-        - Management API > Webhooks
+        - Management API - Webhooks
       parameters:
         - in: path
           name: id
@@ -2581,6 +2660,7 @@ paths:
                     items:
                       type: string
                       enum: *a10
+                    minItems: 1
                     description: The triggers of the webhook
                   surveyIds:
                     type: array
@@ -2596,7 +2676,7 @@ paths:
       summary: Get teams
       description: Gets teams from the database.
       tags:
-        - Organizations API > Teams
+        - Organizations API - Teams
       parameters:
         - in: path
           name: organizationId
@@ -2649,6 +2729,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
       responses:
         "200":
           description: Teams retrieved successfully.
@@ -2694,7 +2784,7 @@ paths:
       summary: Create a team
       description: Creates a team in the database.
       tags:
-        - Organizations API > Teams
+        - Organizations API - Teams
       parameters:
         - in: path
           name: organizationId
@@ -2749,7 +2839,7 @@ paths:
       summary: Get a team
       description: Gets a team from the database.
       tags:
-        - Organizations API > Teams
+        - Organizations API - Teams
       parameters:
         - in: path
           name: id
@@ -2794,7 +2884,7 @@ paths:
       summary: Update a team
       description: Updates a team in the database.
       tags:
-        - Organizations API > Teams
+        - Organizations API - Teams
       parameters:
         - in: path
           name: id
@@ -2853,7 +2943,7 @@ paths:
       summary: Delete a team
       description: Deletes a team from the database.
       tags:
-        - Organizations API > Teams
+        - Organizations API - Teams
       parameters:
         - in: path
           name: id
@@ -2900,7 +2990,7 @@ paths:
       summary: Get project teams
       description: Gets projectTeams from the database.
       tags:
-        - Organizations API > Project Teams
+        - Organizations API - Project Teams
       parameters:
         - in: path
           name: organizationId
@@ -2953,6 +3043,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
         - in: query
           name: teamId
           schema:
@@ -3009,7 +3109,7 @@ paths:
       summary: Create a projectTeam
       description: Creates a project team in the database.
       tags:
-        - Organizations API > Project Teams
+        - Organizations API - Project Teams
       parameters:
         - in: path
           name: organizationId
@@ -3076,7 +3176,7 @@ paths:
       summary: Update a project team
       description: Updates a project team in the database.
       tags:
-        - Organizations API > Project Teams
+        - Organizations API - Project Teams
       parameters:
         - in: path
           name: organizationId
@@ -3143,7 +3243,7 @@ paths:
       summary: Delete a project team
       description: Deletes a project team from the database.
       tags:
-        - Organizations API > Project Teams
+        - Organizations API - Project Teams
       parameters:
         - in: path
           name: organizationId
@@ -3198,7 +3298,7 @@ paths:
       description: Gets users from the database.<br />Only available for self-hosted
         Formbricks.
       tags:
-        - Organizations API > Users
+        - Organizations API - Users
       parameters:
         - in: path
           name: organizationId
@@ -3251,6 +3351,16 @@ paths:
           schema:
             type: string
             description: End date
+        - in: query
+          name: filterDateField
+          description: Date field to filter by
+          schema:
+            type: string
+            enum:
+              - createdAt
+              - updatedAt
+            default: createdAt
+            description: Date field to filter by
         - in: query
           name: id
           schema:
@@ -3334,7 +3444,7 @@ paths:
       description: Create a new user in the database.<br />Only available for
         self-hosted Formbricks.
       tags:
-        - Organizations API > Users
+        - Organizations API - Users
       parameters:
         - in: path
           name: organizationId
@@ -3437,7 +3547,7 @@ paths:
       description: Updates an existing user in the database.<br />Only available for
         self-hosted Formbricks.
       tags:
-        - Organizations API > Users
+        - Organizations API - Users
       parameters:
         - in: path
           name: organizationId
@@ -3538,6 +3648,24 @@ components:
       name: x-api-key
       description: Use your Formbricks x-api-key to authenticate.
   schemas:
+    health:
+      type: object
+      properties:
+        main_database:
+          type: boolean
+          description: Main database connection status - true if database is reachable and
+            running
+          example: true
+        cache_database:
+          type: boolean
+          description: Cache database connection status - true if cache database is
+            reachable and running
+          example: true
+      required:
+        - main_database
+        - cache_database
+      title: Health Check Response
+      description: Health check status for critical application dependencies
     role:
       type: object
       properties:
@@ -3873,15 +4001,12 @@ components:
           type: string
           enum:
             - link
-            - web
-            - website
             - app
           description: The type of the survey
         status:
           type: string
           enum:
             - draft
-            - scheduled
             - inProgress
             - paused
             - completed
@@ -3936,11 +4061,6 @@ components:
             - boolean
             - "null"
           description: Whether to display the progress bar
-        resultShareKey:
-          type:
-            - string
-            - "null"
-          description: The result share key of the survey
         pin:
           type:
             - string
@@ -3979,7 +4099,6 @@ components:
                       type: string
                   buttonLink:
                     type: string
-                    format: uri
                   imageUrl:
                     type: string
                   videoUrl:
@@ -4003,19 +4122,6 @@ components:
                   - type
           default: []
           description: The endings of the survey
-        thankYouCard:
-          type:
-            - object
-            - "null"
-          properties:
-            enabled:
-              type: boolean
-            message:
-              type: string
-          required:
-            - enabled
-            - message
-          description: The thank you card of the survey (deprecated)
         hiddenFields:
           type: object
           properties:
@@ -4098,16 +4204,6 @@ components:
         delay:
           type: number
           description: Delay before showing survey
-        runOnDate:
-          type:
-            - string
-            - "null"
-          description: Date to run the survey
-        closeOnDate:
-          type:
-            - string
-            - "null"
-          description: Date to close the survey
         surveyClosedMessage:
           type:
             - object
@@ -4259,21 +4355,6 @@ components:
                   pattern: ^#(?:[A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$
               required:
                 - light
-            cardShadowColor:
-              type:
-                - object
-                - "null"
-              properties:
-                light:
-                  type: string
-                  pattern: ^#(?:[A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$
-                dark:
-                  type:
-                    - string
-                    - "null"
-                  pattern: ^#(?:[A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$
-              required:
-                - light
             highlightBorderColor:
               type:
                 - object
@@ -4372,17 +4453,37 @@ components:
         isBackButtonHidden:
           type: boolean
           description: Whether the back button is hidden
-        verifyEmail:
-          type: object
+        recaptcha:
+          type:
+            - object
+            - "null"
           properties:
             enabled:
               type: boolean
-            message:
-              type: string
+            threshold:
+              type: number
+              multipleOf: 0.1
+              minimum: 0.1
+              maximum: 0.9
           required:
             - enabled
-            - message
-          description: Email verification configuration (deprecated)
+            - threshold
+          description: Google reCAPTCHA configuration
+        metadata:
+          type: object
+          properties:
+            title:
+              type: object
+              additionalProperties:
+                type: string
+            description:
+              type: object
+              additionalProperties:
+                type: string
+            ogImage:
+              type: string
+              format: uri
+          description: Custom link metadata for social sharing
         displayPercentage:
           type:
             - number
@@ -4405,12 +4506,10 @@ components:
         - showThankYouMessage
         - welcomeCard
         - displayProgressBar
-        - resultShareKey
         - pin
         - createdBy
         - environmentId
         - endings
-        - thankYouCard
         - hiddenFields
         - variables
         - displayOption
@@ -4419,8 +4518,6 @@ components:
         - autoClose
         - autoComplete
         - delay
-        - runOnDate
-        - closeOnDate
         - surveyClosedMessage
         - segmentId
         - projectOverwrites
@@ -4430,7 +4527,8 @@ components:
         - isSingleResponsePerEmailEnabled
         - inlineTriggers
         - isBackButtonHidden
-        - verifyEmail
+        - recaptcha
+        - metadata
         - displayPercentage
         - questions
     webhook:
@@ -4468,6 +4566,7 @@ components:
           items:
             type: string
             enum: *a10
+          minItems: 1
           description: The triggers of the webhook
         surveyIds:
           type: array

@@ -1,9 +1,8 @@
-import { inviteCache } from "@/lib/cache/invite";
-import { getMembershipByUserIdOrganizationId } from "@/lib/membership/service";
-import { TInvitee } from "@/modules/setup/organization/[organizationId]/invite/types/invites";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@formbricks/database";
 import { DatabaseError, InvalidInputError } from "@formbricks/types/errors";
+import { getMembershipByUserIdOrganizationId } from "@/lib/membership/service";
+import { TInvitee } from "@/modules/setup/organization/[organizationId]/invite/types/invites";
 
 export const inviteUser = async ({
   invitee,
@@ -46,11 +45,6 @@ export const inviteUser = async ({
         role: "owner",
         expiresAt,
       },
-    });
-
-    inviteCache.revalidate({
-      id: invite.id,
-      organizationId: invite.organizationId,
     });
 
     return invite.id;

@@ -1,10 +1,17 @@
 "use client";
 
-import { cn } from "@/lib/cn";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusIcon, Trash2Icon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
+import { FormProvider, SubmitHandler, useForm, useWatch } from "react-hook-form";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TOrganizationRole } from "@formbricks/types/memberships";
 import { getAccessFlags } from "@/lib/membership/utils";
 import { getFormattedErrorMessage } from "@/lib/utils/helper";
 import { ZTeamPermission } from "@/modules/ee/teams/project-teams/types/team";
-import { updateTeamDetailsAction } from "@/modules/ee/teams/team-list/action";
+import { updateTeamDetailsAction } from "@/modules/ee/teams/team-list/actions";
 import { DeleteTeam } from "@/modules/ee/teams/team-list/components/team-settings/delete-team";
 import { TOrganizationProject } from "@/modules/ee/teams/team-list/types/project";
 import {
@@ -17,9 +24,18 @@ import {
 } from "@/modules/ee/teams/team-list/types/team";
 import { getTeamAccessFlags } from "@/modules/ee/teams/utils/teams";
 import { Button } from "@/modules/ui/components/button";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/modules/ui/components/dialog";
 import { FormControl, FormError, FormField, FormItem, FormLabel } from "@/modules/ui/components/form";
+import { IdBadge } from "@/modules/ui/components/id-badge";
 import { Input } from "@/modules/ui/components/input";
-import { Modal } from "@/modules/ui/components/modal";
 import {
   Select,
   SelectContent,
@@ -28,15 +44,7 @@ import {
   SelectValue,
 } from "@/modules/ui/components/select";
 import { TooltipRenderer } from "@/modules/ui/components/tooltip";
-import { H4, Muted } from "@/modules/ui/components/typography";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslate } from "@tolgee/react";
-import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { FormProvider, SubmitHandler, useForm, useWatch } from "react-hook-form";
-import toast from "react-hot-toast";
-import { TOrganizationRole } from "@formbricks/types/memberships";
+import { Muted } from "@/modules/ui/components/typography";
 
 interface TeamSettingsModalProps {
   open: boolean;
@@ -59,7 +67,7 @@ export const TeamSettingsModal = ({
   membershipRole,
   currentUserId,
 }: TeamSettingsModalProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
 
   const { isOwner, isManager, isMember } = getAccessFlags(membershipRole);
 
@@ -196,44 +204,19 @@ export const TeamSettingsModal = ({
   const hasEmptyProject = watchProjects.some((p) => !p.projectId);
 
   return (
-    <Modal
-      open={open}
-      setOpen={setOpen}
-      noPadding
-      className="overflow-visible"
-      size="md"
-      hideCloseButton
-      closeOnOutsideClick={true}>
-      <div className="sticky top-0 flex h-full flex-col rounded-lg">
-        <button
-          className={cn(
-            "absolute top-0 right-0 hidden pt-4 pr-4 text-slate-400 hover:text-slate-500 focus:ring-0 focus:outline-none sm:block"
-          )}
-          onClick={closeSettingsModal}>
-          <XIcon className="h-6 w-6 rounded-md bg-white" />
-          <span className="sr-only">Close</span>
-        </button>
-        <div className="rounded-t-lg bg-slate-100">
-          <div className="flex w-full items-center justify-between p-6">
-            <div className="flex items-center space-x-2">
-              <div>
-                <H4>
-                  {t("environments.settings.teams.team_name_settings_title", {
-                    teamName: team.name,
-                  })}
-                </H4>
-                <Muted className="text-slate-500">
-                  {t("environments.settings.teams.team_settings_description")}
-                </Muted>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <FormProvider {...form}>
-        <form className="w-full" onSubmit={handleSubmit(handleUpdateTeam)}>
-          <div className="flex flex-col gap-6 p-6">
-            <div className="max-h-[500px] space-y-6 overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader className="pb-4">
+          <DialogTitle>
+            {t("environments.settings.teams.team_name_settings_title", {
+              teamName: team.name,
+            })}
+          </DialogTitle>
+          <DialogDescription>{t("environments.settings.teams.team_settings_description")}</DialogDescription>
+        </DialogHeader>
+        <FormProvider {...form}>
+          <form className="contents space-y-4" onSubmit={handleSubmit(handleUpdateTeam)}>
+            <DialogBody className="flex-grow space-y-6 overflow-y-auto">
               <FormField
                 control={control}
                 name="name"
@@ -253,15 +236,22 @@ export const TeamSettingsModal = ({
                 )}
               />
 
+              <IdBadge id={team.id} label={t("common.team_id")} variant="column" />
+
               {/* Members Section */}
               <div className="space-y-2">
-                <FormLabel>{t("common.members")}</FormLabel>
+                <div className="flex flex-col space-y-1">
+                  <FormLabel>{t("common.members")}</FormLabel>
+                  <Muted className="block text-slate-500">
+                    {t("environments.settings.teams.add_members_description")}
+                  </Muted>
+                </div>
                 <FormField
                   control={control}
                   name={`members`}
                   render={({ fieldState: { error } }) => (
                     <FormItem className="flex-1">
-                      <div className="max-h-40 space-y-2 overflow-y-auto p-1">
+                      <div className="space-y-2 overflow-y-auto">
                         {watchMembers.map((member, index) => {
                           const memberOpts = getMemberOptionsForIndex(index);
                           return (
@@ -363,6 +353,7 @@ export const TeamSettingsModal = ({
                 />
                 <TooltipRenderer
                   shouldRender={selectedMemberIds.length === orgMembers.length || hasEmptyMember}
+                  triggerClass="inline-block"
                   tooltipContent={
                     hasEmptyMember
                       ? t("environments.settings.teams.please_fill_all_member_fields")
@@ -379,23 +370,25 @@ export const TeamSettingsModal = ({
                       hasEmptyMember
                     }>
                     <PlusIcon className="h-4 w-4" />
-                    <span>Add member</span>
+                    <span>{t("common.add_member")}</span>
                   </Button>
                 </TooltipRenderer>
-                <Muted className="block text-slate-500">
-                  {t("environments.settings.teams.add_members_description")}
-                </Muted>
               </div>
 
               {/* Projects Section */}
               <div className="space-y-2">
-                <FormLabel>Projects</FormLabel>
+                <div className="flex flex-col space-y-1">
+                  <FormLabel>{t("common.projects")}</FormLabel>
+                  <Muted className="block text-slate-500">
+                    {t("environments.settings.teams.add_projects_description")}
+                  </Muted>
+                </div>
                 <FormField
                   control={control}
                   name={`projects`}
                   render={({ fieldState: { error } }) => (
                     <FormItem className="flex-1">
-                      <div className="max-h-40 space-y-2 overflow-y-auto p-1">
+                      <div className="space-y-2">
                         {watchProjects.map((project, index) => {
                           const projectOpts = getProjectOptionsForIndex(index);
                           return (
@@ -481,6 +474,7 @@ export const TeamSettingsModal = ({
 
                 <TooltipRenderer
                   shouldRender={selectedProjectIds.length === orgProjects.length || hasEmptyProject}
+                  triggerClass="inline-block"
                   tooltipContent={
                     hasEmptyProject
                       ? t("environments.settings.teams.please_fill_all_project_fields")
@@ -495,24 +489,19 @@ export const TeamSettingsModal = ({
                       !isOwnerOrManager || selectedProjectIds.length === orgProjects.length || hasEmptyProject
                     }>
                     <PlusIcon className="h-4 w-4" />
-                    <span>Add project</span>
+                    {t("common.add_project")}
                   </Button>
                 </TooltipRenderer>
-
-                <Muted className="block text-slate-500">
-                  {t("environments.settings.teams.add_projects_description")}
-                </Muted>
               </div>
-
-              <div className="w-max">
+            </DialogBody>
+            <DialogFooter>
+              <div className="w-full">
                 <DeleteTeam
                   teamId={team.id}
                   onDelete={closeSettingsModal}
                   isOwnerOrManager={isOwnerOrManager}
                 />
               </div>
-            </div>
-            <div className="flex justify-between">
               <Button size="default" type="button" variant="outline" onClick={closeSettingsModal}>
                 {t("common.cancel")}
               </Button>
@@ -523,10 +512,10 @@ export const TeamSettingsModal = ({
                 disabled={!isOwnerOrManager && !isTeamAdminMember}>
                 {t("common.save")}
               </Button>
-            </div>
-          </div>
-        </form>
-      </FormProvider>
-    </Modal>
+            </DialogFooter>
+          </form>
+        </FormProvider>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -1,11 +1,12 @@
 "use client";
 
-import { ACTION_TYPE_ICON_LOOKUP } from "@/app/(app)/environments/[environmentId]/actions/utils";
-import { Input } from "@/modules/ui/components/input";
 import { ActionClass } from "@prisma/client";
-import { useTranslate } from "@tolgee/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TSurvey } from "@formbricks/types/surveys/types";
+import { ACTION_TYPE_ICON_LOOKUP } from "@/modules/projects/settings/(setup)/app-connection/utils";
+import { ActionClassInfo } from "@/modules/ui/components/action-class-info";
+import { Input } from "@/modules/ui/components/input";
 
 interface SavedActionsTabProps {
   actionClasses: ActionClass[];
@@ -20,7 +21,7 @@ export const SavedActionsTab = ({
   setLocalSurvey,
   setOpen,
 }: SavedActionsTabProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const availableActions = actionClasses.filter(
     (actionClass) => !localSurvey.triggers.some((trigger) => trigger.actionClass.id === actionClass.id)
   );
@@ -69,9 +70,9 @@ export const SavedActionsTab = ({
                 </h2>
                 <div className="flex flex-col gap-2">
                   {actions.map((action) => (
-                    <div
+                    <button
                       key={action.id}
-                      className="cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 hover:bg-slate-100"
+                      className="flex cursor-pointer flex-col items-start rounded-md border border-slate-300 bg-white px-4 py-2 hover:bg-slate-100"
                       onClick={() => handleActionClick(action)}>
                       <div className="mt-1 flex items-center">
                         <div className="mr-1.5 h-4 w-4 text-slate-600">
@@ -79,8 +80,8 @@ export const SavedActionsTab = ({
                         </div>
                         <h4 className="text-sm font-semibold text-slate-600">{action.name}</h4>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">{action.description}</p>
-                    </div>
+                      <ActionClassInfo actionClass={action} />
+                    </button>
                   ))}
                 </div>
               </div>

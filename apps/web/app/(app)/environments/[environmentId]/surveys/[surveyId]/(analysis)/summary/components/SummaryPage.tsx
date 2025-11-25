@@ -1,30 +1,22 @@
 "use client";
 
-import { useResponseFilter } from "@/app/(app)/environments/[environmentId]/components/ResponseFilterContext";
-import {
-  getResponseCountAction,
-  getSurveySummaryAction,
-} from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/actions";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { TEnvironment } from "@formbricks/types/environment";
+import { TSurvey, TSurveySummary } from "@formbricks/types/surveys/types";
+import { TUserLocale } from "@formbricks/types/user";
+import { getSurveySummaryAction } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/actions";
+import { useResponseFilter } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/components/response-filter-context";
 import ScrollToTop from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/summary/components/ScrollToTop";
 import { SummaryDropOffs } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/summary/components/SummaryDropOffs";
 import { CustomFilter } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/CustomFilter";
-import { ResultsShareButton } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/ResultsShareButton";
 import { getFormattedFilters } from "@/app/lib/surveys/surveys";
-import {
-  getResponseCountBySurveySharingKeyAction,
-  getSummaryBySurveySharingKeyAction,
-} from "@/app/share/[sharingKey]/actions";
-import { useIntervalWhenFocused } from "@/lib/utils/hooks/useIntervalWhenFocused";
 import { replaceHeadlineRecall } from "@/lib/utils/recall";
-import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TEnvironment } from "@formbricks/types/environment";
-import { TSurvey, TSurveySummary } from "@formbricks/types/surveys/types";
-import { TUser, TUserLocale } from "@formbricks/types/user";
+import { QuotasSummary } from "@/modules/ee/quotas/components/quotas-summary";
 import { SummaryList } from "./SummaryList";
 import { SummaryMetadata } from "./SummaryMetadata";
 
-const initialSurveySummary: TSurveySummary = {
+const defaultSurveySummary: TSurveySummary = {
   meta: {
     completedPercentage: 0,
     completedResponses: 0,
@@ -34,8 +26,11 @@ const initialSurveySummary: TSurveySummary = {
     startsPercentage: 0,
     totalResponses: 0,
     ttcAverage: 0,
+    quotasCompleted: 0,
+    quotasCompletedPercentage: 0,
   },
   dropOff: [],
+  quotas: [],
   summary: [],
 };
 
@@ -43,111 +38,68 @@ interface SummaryPageProps {
   environment: TEnvironment;
   survey: TSurvey;
   surveyId: string;
-  webAppUrl: string;
-  user?: TUser;
-  totalResponseCount: number;
-  documentsPerPage?: number;
   locale: TUserLocale;
-  isReadOnly: boolean;
+  initialSurveySummary?: TSurveySummary;
+  isQuotasAllowed: boolean;
 }
 
 export const SummaryPage = ({
   environment,
   survey,
   surveyId,
-  webAppUrl,
-  totalResponseCount,
   locale,
-  isReadOnly,
+  initialSurveySummary,
+  isQuotasAllowed,
 }: SummaryPageProps) => {
-  const params = useParams();
-  const sharingKey = params.sharingKey as string;
-  const isSharingPage = !!sharingKey;
-
   const searchParams = useSearchParams();
-  const isShareEmbedModalOpen = searchParams.get("share") === "true";
 
-  const [responseCount, setResponseCount] = useState<number | null>(null);
-  const [surveySummary, setSurveySummary] = useState<TSurveySummary>(initialSurveySummary);
-  const [showDropOffs, setShowDropOffs] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [surveySummary, setSurveySummary] = useState<TSurveySummary>(
+    initialSurveySummary || defaultSurveySummary
+  );
+
+  const [tab, setTab] = useState<"dropOffs" | "quotas" | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(!initialSurveySummary);
 
   const { selectedFilter, dateRange, resetState } = useResponseFilter();
 
-  const filters = useMemo(
-    () => getFormattedFilters(survey, selectedFilter, dateRange),
-    [selectedFilter, dateRange, survey]
-  );
+  // Only fetch data when filters change or when there's no initial data
+  useEffect(() => {
+    // If we have initial data and no filters are applied, don't fetch
+    const hasNoFilters =
+      (!selectedFilter ||
+        Object.keys(selectedFilter).length === 0 ||
+        (selectedFilter.filter && selectedFilter.filter.length === 0)) &&
+      (!dateRange || (!dateRange.from && !dateRange.to));
 
-  // Use a ref to keep the latest state and props
-  const latestFiltersRef = useRef(filters);
-  latestFiltersRef.current = filters;
+    if (initialSurveySummary && hasNoFilters) {
+      setIsLoading(false);
+      return;
+    }
 
-  const getResponseCount = useCallback(() => {
-    if (isSharingPage)
-      return getResponseCountBySurveySharingKeyAction({
-        sharingKey,
-        filterCriteria: latestFiltersRef.current,
-      });
-    return getResponseCountAction({
-      surveyId,
-      filterCriteria: latestFiltersRef.current,
-    });
-  }, [isSharingPage, sharingKey, surveyId]);
-
-  const getSummary = useCallback(() => {
-    if (isSharingPage)
-      return getSummaryBySurveySharingKeyAction({
-        sharingKey,
-        filterCriteria: latestFiltersRef.current,
-      });
-
-    return getSurveySummaryAction({
-      surveyId,
-      filterCriteria: latestFiltersRef.current,
-    });
-  }, [isSharingPage, sharingKey, surveyId]);
-
-  const handleInitialData = useCallback(
-    async (isInitialLoad = false) => {
-      if (isInitialLoad) {
-        setIsLoading(true);
-      }
+    const fetchSummary = async () => {
+      setIsLoading(true);
 
       try {
-        const [updatedResponseCountData, updatedSurveySummary] = await Promise.all([
-          getResponseCount(),
-          getSummary(),
-        ]);
+        // Recalculate filters inside the effect to ensure we have the latest values
+        const currentFilters = getFormattedFilters(survey, selectedFilter, dateRange);
+        let updatedSurveySummary;
 
-        const responseCount = updatedResponseCountData?.data ?? 0;
-        const surveySummary = updatedSurveySummary?.data ?? initialSurveySummary;
+        updatedSurveySummary = await getSurveySummaryAction({
+          surveyId,
+          filterCriteria: currentFilters,
+        });
 
-        setResponseCount(responseCount);
+        const surveySummary = updatedSurveySummary?.data ?? defaultSurveySummary;
         setSurveySummary(surveySummary);
       } catch (error) {
         console.error(error);
       } finally {
-        if (isInitialLoad) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
-    },
-    [getResponseCount, getSummary]
-  );
+    };
 
-  useEffect(() => {
-    handleInitialData(true);
-  }, [filters, isSharingPage, sharingKey, surveyId, handleInitialData]);
-
-  useIntervalWhenFocused(
-    () => {
-      handleInitialData(false);
-    },
-    10000,
-    !isShareEmbedModalOpen,
-    false
-  );
+    fetchSummary();
+  }, [selectedFilter, dateRange, survey, surveyId, initialSurveySummary]);
 
   const surveyMemoized = useMemo(() => {
     return replaceHeadlineRecall(survey, "default");
@@ -163,24 +115,23 @@ export const SummaryPage = ({
     <>
       <SummaryMetadata
         surveySummary={surveySummary.meta}
-        showDropOffs={showDropOffs}
-        setShowDropOffs={setShowDropOffs}
+        quotasCount={surveySummary.quotas?.length ?? 0}
         isLoading={isLoading}
+        tab={tab}
+        setTab={setTab}
+        isQuotasAllowed={isQuotasAllowed}
       />
-      {showDropOffs && <SummaryDropOffs dropOff={surveySummary.dropOff} survey={surveyMemoized} />}
+      {tab === "dropOffs" && <SummaryDropOffs dropOff={surveySummary.dropOff} survey={surveyMemoized} />}
+      {isQuotasAllowed && tab === "quotas" && <QuotasSummary quotas={surveySummary.quotas} />}
       <div className="flex gap-1.5">
         <CustomFilter survey={surveyMemoized} />
-        {!isReadOnly && !isSharingPage && (
-          <ResultsShareButton survey={surveyMemoized} webAppUrl={webAppUrl} />
-        )}
       </div>
       <ScrollToTop containerId="mainContent" />
       <SummaryList
         summary={surveySummary.summary}
-        responseCount={responseCount}
+        responseCount={surveySummary.meta.totalResponses}
         survey={surveyMemoized}
         environment={environment}
-        totalResponseCount={totalResponseCount}
         locale={locale}
       />
     </>

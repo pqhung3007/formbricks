@@ -1,59 +1,51 @@
 "use client";
 
-import { useResponseFilter } from "@/app/(app)/environments/[environmentId]/components/ResponseFilterContext";
-import {
-  getResponseCountAction,
-  getResponsesAction,
-} from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/actions";
-import { ResponseDataView } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseDataView";
-import { CustomFilter } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/CustomFilter";
-import { ResultsShareButton } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/ResultsShareButton";
-import { getFormattedFilters } from "@/app/lib/surveys/surveys";
-import {
-  getResponseCountBySurveySharingKeyAction,
-  getResponsesBySurveySharingKeyAction,
-} from "@/app/share/[sharingKey]/actions";
-import { replaceHeadlineRecall } from "@/lib/utils/recall";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TEnvironment } from "@formbricks/types/environment";
-import { TResponse } from "@formbricks/types/responses";
+import { TSurveyQuota } from "@formbricks/types/quota";
+import { TResponseWithQuotas } from "@formbricks/types/responses";
 import { TSurvey } from "@formbricks/types/surveys/types";
 import { TTag } from "@formbricks/types/tags";
 import { TUser, TUserLocale } from "@formbricks/types/user";
+import { getResponsesAction } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/actions";
+import { useResponseFilter } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/components/response-filter-context";
+import { ResponseDataView } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseDataView";
+import { CustomFilter } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/CustomFilter";
+import { getFormattedFilters } from "@/app/lib/surveys/surveys";
+import { replaceHeadlineRecall } from "@/lib/utils/recall";
 
 interface ResponsePageProps {
   environment: TEnvironment;
   survey: TSurvey;
   surveyId: string;
-  webAppUrl: string;
   user?: TUser;
   environmentTags: TTag[];
   responsesPerPage: number;
   locale: TUserLocale;
   isReadOnly: boolean;
+  isQuotasAllowed: boolean;
+  quotas: TSurveyQuota[];
+  initialResponses?: TResponseWithQuotas[];
 }
 
 export const ResponsePage = ({
   environment,
   survey,
   surveyId,
-  webAppUrl,
   user,
   environmentTags,
   responsesPerPage,
   locale,
   isReadOnly,
+  isQuotasAllowed,
+  quotas,
+  initialResponses = [],
 }: ResponsePageProps) => {
-  const params = useParams();
-  const sharingKey = params.sharingKey as string;
-  const isSharingPage = !!sharingKey;
-
-  const [responseCount, setResponseCount] = useState<number | null>(null);
-  const [responses, setResponses] = useState<TResponse[]>([]);
-  const [page, setPage] = useState<number>(1);
-  const [hasMore, setHasMore] = useState<boolean>(true);
-  const [isFetchingFirstPage, setFetchingFirstPage] = useState<boolean>(true);
+  const [responses, setResponses] = useState<TResponseWithQuotas[]>(initialResponses);
+  const [page, setPage] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(initialResponses.length >= responsesPerPage);
+  const [isFetchingFirstPage, setIsFetchingFirstPage] = useState<boolean>(false);
   const { selectedFilter, dateRange, resetState } = useResponseFilter();
 
   const filters = useMemo(
@@ -66,46 +58,32 @@ export const ResponsePage = ({
   const searchParams = useSearchParams();
 
   const fetchNextPage = useCallback(async () => {
+    if (page === null) return;
     const newPage = page + 1;
 
-    let newResponses: TResponse[] = [];
+    let newResponses: TResponseWithQuotas[] = [];
 
-    if (isSharingPage) {
-      const getResponsesActionResponse = await getResponsesBySurveySharingKeyAction({
-        sharingKey: sharingKey,
-        limit: responsesPerPage,
-        offset: (newPage - 1) * responsesPerPage,
-        filterCriteria: filters,
-      });
-      newResponses = getResponsesActionResponse?.data || [];
-    } else {
-      const getResponsesActionResponse = await getResponsesAction({
-        surveyId,
-        limit: responsesPerPage,
-        offset: (newPage - 1) * responsesPerPage,
-        filterCriteria: filters,
-      });
-      newResponses = getResponsesActionResponse?.data || [];
-    }
+    const getResponsesActionResponse = await getResponsesAction({
+      surveyId,
+      limit: responsesPerPage,
+      offset: (newPage - 1) * responsesPerPage,
+      filterCriteria: filters,
+    });
+    newResponses = getResponsesActionResponse?.data || [];
 
     if (newResponses.length === 0 || newResponses.length < responsesPerPage) {
       setHasMore(false);
     }
     setResponses([...responses, ...newResponses]);
     setPage(newPage);
-  }, [filters, isSharingPage, page, responses, responsesPerPage, sharingKey, surveyId]);
+  }, [filters, page, responses, responsesPerPage, surveyId]);
 
-  const deleteResponses = (responseIds: string[]) => {
-    setResponses(responses.filter((response) => !responseIds.includes(response.id)));
-    if (responseCount) {
-      setResponseCount(responseCount - responseIds.length);
-    }
+  const updateResponseList = (responseIds: string[]) => {
+    setResponses((prev) => prev.filter((r) => !responseIds.includes(r.id)));
   };
 
-  const updateResponse = (responseId: string, updatedResponse: TResponse) => {
-    if (responses) {
-      setResponses(responses.map((response) => (response.id === responseId ? updatedResponse : response)));
-    }
+  const updateResponse = (responseId: string, updatedResponse: TResponseWithQuotas) => {
+    setResponses((prev) => prev.map((r) => (r.id === responseId ? updatedResponse : r)));
   };
 
   const surveyMemoized = useMemo(() => {
@@ -118,77 +96,50 @@ export const ResponsePage = ({
     }
   }, [searchParams, resetState]);
 
-  useEffect(() => {
-    const handleResponsesCount = async () => {
-      let responseCount = 0;
-
-      if (isSharingPage) {
-        const responseCountActionResponse = await getResponseCountBySurveySharingKeyAction({
-          sharingKey,
-          filterCriteria: filters,
-        });
-        responseCount = responseCountActionResponse?.data || 0;
-      } else {
-        const responseCountActionResponse = await getResponseCountAction({
-          surveyId,
-          filterCriteria: filters,
-        });
-        responseCount = responseCountActionResponse?.data || 0;
-      }
-
-      setResponseCount(responseCount);
-    };
-    handleResponsesCount();
-  }, [filters, isSharingPage, sharingKey, surveyId]);
+  // Only fetch if filters are applied (not on initial mount with no filters)
+  const hasFilters =
+    selectedFilter?.responseStatus !== "all" ||
+    (selectedFilter?.filter && selectedFilter.filter.length > 0) ||
+    (dateRange.from && dateRange.to);
 
   useEffect(() => {
-    const fetchInitialResponses = async () => {
+    const fetchFilteredResponses = async () => {
       try {
-        setFetchingFirstPage(true);
-        let responses: TResponse[] = [];
-
-        if (isSharingPage) {
-          const getResponsesActionResponse = await getResponsesBySurveySharingKeyAction({
-            sharingKey,
-            limit: responsesPerPage,
-            offset: 0,
-            filterCriteria: filters,
-          });
-
-          responses = getResponsesActionResponse?.data || [];
-        } else {
-          const getResponsesActionResponse = await getResponsesAction({
-            surveyId,
-            limit: responsesPerPage,
-            offset: 0,
-            filterCriteria: filters,
-          });
-
-          responses = getResponsesActionResponse?.data || [];
+        // skip call for initial mount
+        if (page === null && !hasFilters) {
+          setPage(1);
+          return;
         }
+        setPage(1);
+        setIsFetchingFirstPage(true);
+        let responses: TResponseWithQuotas[] = [];
+
+        const getResponsesActionResponse = await getResponsesAction({
+          surveyId,
+          limit: responsesPerPage,
+          offset: 0,
+          filterCriteria: filters,
+        });
+
+        responses = getResponsesActionResponse?.data || [];
 
         if (responses.length < responsesPerPage) {
           setHasMore(false);
+        } else {
+          setHasMore(true);
         }
         setResponses(responses);
       } finally {
-        setFetchingFirstPage(false);
+        setIsFetchingFirstPage(false);
       }
     };
-    fetchInitialResponses();
-  }, [surveyId, filters, responsesPerPage, sharingKey, isSharingPage]);
-
-  useEffect(() => {
-    setPage(1);
-    setHasMore(true);
-    setResponses([]);
-  }, [filters]);
+    fetchFilteredResponses();
+  }, [filters, responsesPerPage, selectedFilter, dateRange, surveyId]);
 
   return (
     <>
-      <div className="flex gap-1.5">
+      <div className="flex h-9 gap-1.5">
         <CustomFilter survey={surveyMemoized} />
-        {!isReadOnly && !isSharingPage && <ResultsShareButton survey={survey} webAppUrl={webAppUrl} />}
       </div>
       <ResponseDataView
         survey={survey}
@@ -199,10 +150,12 @@ export const ResponsePage = ({
         isReadOnly={isReadOnly}
         fetchNextPage={fetchNextPage}
         hasMore={hasMore}
-        deleteResponses={deleteResponses}
+        updateResponseList={updateResponseList}
         updateResponse={updateResponse}
         isFetchingFirstPage={isFetchingFirstPage}
         locale={locale}
+        isQuotasAllowed={isQuotasAllowed}
+        quotas={quotas}
       />
     </>
   );

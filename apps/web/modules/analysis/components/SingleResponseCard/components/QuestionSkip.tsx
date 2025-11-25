@@ -1,12 +1,13 @@
 "use client";
 
+import { CheckCircle2Icon, ChevronsDownIcon, XCircleIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { TResponseData } from "@formbricks/types/responses";
+import { TSurveyQuestion } from "@formbricks/types/surveys/types";
+import { getTextContent } from "@formbricks/types/surveys/validation";
 import { getLocalizedValue } from "@/lib/i18n/utils";
 import { parseRecallInfo } from "@/lib/utils/recall";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/modules/ui/components/tooltip";
-import { useTranslate } from "@tolgee/react";
-import { CheckCircle2Icon, ChevronsDownIcon, XCircleIcon } from "lucide-react";
-import { TResponseData } from "@formbricks/types/responses";
-import { TSurveyQuestion } from "@formbricks/types/surveys/types";
 
 interface QuestionSkipProps {
   skippedQuestions: string[] | undefined;
@@ -23,7 +24,7 @@ export const QuestionSkip = ({
   isFirstQuestionAnswered,
   responseData,
 }: QuestionSkipProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   return (
     <div>
       {skippedQuestions && (
@@ -39,7 +40,7 @@ export const QuestionSkip = ({
                     background:
                       "repeating-linear-gradient(rgb(148, 163, 184), rgb(148, 163, 184) 5px, transparent 5px, transparent 8px)", // adjust the values to fit your design
                   }}>
-                  <CheckCircle2Icon className="absolute top-0 w-[1.5rem] min-w-[1.5rem] rounded-full bg-white p-0.25 text-slate-400" />
+                  <CheckCircle2Icon className="p-0.25 absolute top-0 w-[1.5rem] min-w-[1.5rem] rounded-full bg-white text-slate-400" />
                 </div>
               }
               <div className="ml-6 flex flex-col text-slate-700">{t("common.welcome_card")}</div>
@@ -72,12 +73,16 @@ export const QuestionSkip = ({
                 {skippedQuestions?.map((questionId) => {
                   return (
                     <p className="my-2" key={questionId}>
-                      {parseRecallInfo(
-                        getLocalizedValue(
-                          questions.find((question) => question.id === questionId)!.headline,
-                          "default"
-                        ),
-                        responseData
+                      {getTextContent(
+                        parseRecallInfo(
+                          getLocalizedValue(
+                            questions.find((question) => question.id === questionId)?.headline ?? {
+                              default: "",
+                            },
+                            "default"
+                          ),
+                          responseData
+                        )
                       )}
                     </p>
                   );
@@ -107,12 +112,16 @@ export const QuestionSkip = ({
                   skippedQuestions.map((questionId) => {
                     return (
                       <p className="my-2" key={questionId}>
-                        {parseRecallInfo(
-                          getLocalizedValue(
-                            questions.find((question) => question.id === questionId)!.headline,
-                            "default"
-                          ),
-                          responseData
+                        {getTextContent(
+                          parseRecallInfo(
+                            getLocalizedValue(
+                              questions.find((question) => question.id === questionId)?.headline ?? {
+                                default: "",
+                              },
+                              "default"
+                            ),
+                            responseData
+                          )
                         )}
                       </p>
                     );

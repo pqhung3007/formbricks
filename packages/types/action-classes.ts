@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ZId } from "./common";
 
 export const ZActionClassMatchType = z.union([
   z.literal("exactMatch"),
@@ -9,14 +10,19 @@ export const ZActionClassMatchType = z.union([
   z.literal("notContains"),
 ]);
 
-export const ZActionClassPageUrlRule = z.union([
-  z.literal("exactMatch"),
-  z.literal("contains"),
-  z.literal("startsWith"),
-  z.literal("endsWith"),
-  z.literal("notMatch"),
-  z.literal("notContains"),
-]);
+// Define the rule values as a const array to avoid duplication
+export const ACTION_CLASS_PAGE_URL_RULES = [
+  "exactMatch",
+  "contains",
+  "startsWith",
+  "endsWith",
+  "notMatch",
+  "notContains",
+  "matchesRegex",
+] as const;
+
+// Create Zod schema from the const array
+export const ZActionClassPageUrlRule = z.enum(ACTION_CLASS_PAGE_URL_RULES);
 
 export type TActionClassPageUrlRule = z.infer<typeof ZActionClassPageUrlRule>;
 
@@ -28,6 +34,7 @@ const ZActionClassNoCodeConfigBase = z.object({
       rule: ZActionClassPageUrlRule,
     })
   ),
+  urlFiltersConnector: z.enum(["or", "and"]).optional(),
 });
 
 const ZActionClassNoCodeConfigClick = ZActionClassNoCodeConfigBase.extend({
@@ -91,8 +98,8 @@ const ZActionClassInputBase = z.object({
     .string({ message: "Name is required" })
     .trim()
     .min(1, { message: "Name must be at least 1 character long" }),
-  description: z.string().nullable(),
-  environmentId: z.string(),
+  description: z.string().nullish(),
+  environmentId: ZId.min(1, { message: "Environment ID cannot be empty" }),
   type: ZActionClassType,
 });
 
@@ -108,6 +115,9 @@ const ZActionClassInputNoCode = ZActionClassInputBase.extend({
   noCodeConfig: ZActionClassNoCodeConfig.nullable(),
 });
 
-export const ZActionClassInput = z.union([ZActionClassInputCode, ZActionClassInputNoCode]);
+export const ZActionClassInput = z.discriminatedUnion("type", [
+  ZActionClassInputCode,
+  ZActionClassInputNoCode,
+]);
 
 export type TActionClassInput = z.infer<typeof ZActionClassInput>;

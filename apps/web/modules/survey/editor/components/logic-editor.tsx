@@ -1,5 +1,10 @@
 "use client";
 
+import { ArrowRightIcon } from "lucide-react";
+import { ReactElement, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { TSurvey, TSurveyLogic, TSurveyQuestion } from "@formbricks/types/surveys/types";
+import { getTextContent } from "@formbricks/types/surveys/validation";
 import { getLocalizedValue } from "@/lib/i18n/utils";
 import { LogicEditorActions } from "@/modules/survey/editor/components/logic-editor-actions";
 import { LogicEditorConditions } from "@/modules/survey/editor/components/logic-editor-conditions";
@@ -11,10 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/modules/ui/components/select";
-import { useTranslate } from "@tolgee/react";
-import { ArrowRightIcon } from "lucide-react";
-import { ReactElement, useMemo } from "react";
-import { TSurvey, TSurveyLogic, TSurveyQuestion } from "@formbricks/types/surveys/types";
 
 interface LogicEditorProps {
   localSurvey: TSurvey;
@@ -35,7 +36,7 @@ export function LogicEditor({
   logicIdx,
   isLast,
 }: LogicEditorProps) {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const QUESTIONS_ICON_MAP = getQuestionIconMap(t);
   const fallbackOptions = useMemo(() => {
     let options: {
@@ -48,7 +49,7 @@ export function LogicEditor({
       const ques = localSurvey.questions[i];
       options.push({
         icon: QUESTIONS_ICON_MAP[ques.type],
-        label: getLocalizedValue(ques.headline, "default"),
+        label: getTextContent(getLocalizedValue(ques.headline, "default")),
         value: ques.id,
       });
     }
@@ -57,7 +58,8 @@ export function LogicEditor({
       options.push({
         label:
           ending.type === "endScreen"
-            ? getLocalizedValue(ending.headline, "default") || t("environments.surveys.edit.end_screen_card")
+            ? getTextContent(getLocalizedValue(ending.headline, "default")) ||
+              t("environments.surveys.edit.end_screen_card")
             : ending.label || t("environments.surveys.edit.redirect_thank_you_card"),
         value: ending.id,
       });
@@ -67,7 +69,7 @@ export function LogicEditor({
   }, [localSurvey.questions, localSurvey.endings, question.id, t]);
 
   return (
-    <div className="flex w-full grow flex-col gap-4 overflow-x-auto pb-2 text-sm">
+    <div className="flex w-full min-w-full grow flex-col gap-4 overflow-x-auto pb-2 text-sm">
       <LogicEditorConditions
         conditions={logicItem.conditions}
         updateQuestion={updateQuestion}
@@ -84,10 +86,13 @@ export function LogicEditor({
         localSurvey={localSurvey}
         questionIdx={questionIdx}
       />
+
       {isLast ? (
-        <div className="flex items-center space-x-2">
-          <ArrowRightIcon className="h-4 w-4" />
-          <p className="text-nowrap text-slate-700">
+        <div className="flex items-center gap-x-2">
+          <div className="flex w-10 shrink-0 items-center justify-end">
+            <ArrowRightIcon className="h-4 w-4 text-slate-500" />
+          </div>
+          <p className="text-nowrap font-medium text-slate-900">
             {t("environments.surveys.edit.all_other_answers_will_continue_to")}
           </p>
           <Select

@@ -1,16 +1,14 @@
-import { segmentCache } from "@/lib/cache/segment";
-import { surveyCache } from "@/lib/survey/cache";
-import { checkForInvalidImagesInQuestions } from "@/lib/survey/utils";
-import { TriggerUpdate } from "@/modules/survey/editor/types/survey-trigger";
-import { getActionClasses } from "@/modules/survey/lib/action-class";
-import { getOrganizationAIKeys, getOrganizationIdFromEnvironmentId } from "@/modules/survey/lib/organization";
-import { getSurvey, selectSurvey } from "@/modules/survey/lib/survey";
 import { ActionClass, Prisma } from "@prisma/client";
 import { prisma } from "@formbricks/database";
 import { logger } from "@formbricks/logger";
 import { DatabaseError, InvalidInputError, ResourceNotFoundError } from "@formbricks/types/errors";
 import { TSegment, ZSegmentFilters } from "@formbricks/types/segment";
 import { TSurvey } from "@formbricks/types/surveys/types";
+import { checkForInvalidImagesInQuestions } from "@/lib/survey/utils";
+import { TriggerUpdate } from "@/modules/survey/editor/types/survey-trigger";
+import { getActionClasses } from "@/modules/survey/lib/action-class";
+import { getOrganizationAIKeys, getOrganizationIdFromEnvironmentId } from "@/modules/survey/lib/organization";
+import { getSurvey, selectSurvey } from "@/modules/survey/lib/survey";
 
 export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => {
   try {
@@ -106,7 +104,7 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
             };
           }
 
-          const updatedSegment = await prisma.segment.update({
+          await prisma.segment.update({
             where: { id: segment.id },
             data: updatedInput,
             select: {
@@ -115,9 +113,6 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
               id: true,
             },
           });
-
-          segmentCache.revalidate({ id: updatedSegment.id, environmentId: updatedSegment.environmentId });
-          updatedSegment.surveys.map((survey) => surveyCache.revalidate({ id: survey.id }));
         } catch (error) {
           logger.error(error, "Error updating survey");
           throw new Error("Error updating survey");
@@ -155,11 +150,6 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
           });
         }
       }
-
-      segmentCache.revalidate({
-        id: segment.id,
-        environmentId: segment.environmentId,
-      });
     } else if (type === "app") {
       if (!currentSurvey.segment) {
         await prisma.survey.update({
@@ -188,10 +178,6 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
               },
             },
           },
-        });
-
-        segmentCache.revalidate({
-          environmentId,
         });
       }
     }
@@ -262,19 +248,6 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
       type,
     };
 
-    // Remove scheduled status when runOnDate is not set
-    if (data.status === "scheduled" && data.runOnDate === null) {
-      data.status = "inProgress";
-    }
-    // Set scheduled status when runOnDate is set and in the future on completed surveys
-    if (
-      (data.status === "completed" || data.status === "paused" || data.status === "inProgress") &&
-      data.runOnDate &&
-      data.runOnDate > new Date()
-    ) {
-      data.status = "scheduled";
-    }
-
     delete data.createdBy;
     const prismaSurvey = await prisma.survey.update({
       where: { id: surveyId },
@@ -290,20 +263,11 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
       };
     }
 
-    // TODO: Fix this, this happens because the survey type "web" is no longer in the zod types but its required in the schema for migration
-    // @ts-expect-error
     const modifiedSurvey: TSurvey = {
       ...prismaSurvey, // Properties from prismaSurvey
       displayPercentage: Number(prismaSurvey.displayPercentage) || null,
       segment: surveySegment,
     };
-
-    surveyCache.revalidate({
-      id: modifiedSurvey.id,
-      environmentId: modifiedSurvey.environmentId,
-      segmentId: modifiedSurvey.segment?.id,
-      resultShareKey: currentSurvey.resultShareKey ?? undefined,
-    });
 
     return modifiedSurvey;
   } catch (error) {
@@ -316,7 +280,7 @@ export const updateSurvey = async (updatedSurvey: TSurvey): Promise<TSurvey> => 
   }
 };
 
-const checkTriggersValidity = (triggers: TSurvey["triggers"], actionClasses: ActionClass[]) => {
+export const checkTriggersValidity = (triggers: TSurvey["triggers"], actionClasses: ActionClass[]) => {
   if (!triggers) return;
 
   // check if all the triggers are valid
@@ -334,7 +298,7 @@ const checkTriggersValidity = (triggers: TSurvey["triggers"], actionClasses: Act
   }
 };
 
-const handleTriggerUpdates = (
+export const handleTriggerUpdates = (
   updatedTriggers: TSurvey["triggers"],
   currentTriggers: TSurvey["triggers"],
   actionClasses: ActionClass[]
@@ -372,12 +336,6 @@ const handleTriggerUpdates = (
       },
     };
   }
-
-  [...addedTriggers, ...deletedTriggers].forEach((trigger) => {
-    surveyCache.revalidate({
-      actionClassId: trigger.actionClass.id,
-    });
-  });
 
   return triggersUpdate;
 };

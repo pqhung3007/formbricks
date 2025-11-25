@@ -1,9 +1,9 @@
-import { CreateSurveyParams, CreateSurveyWithLogicParams } from "@/playwright/utils/mock";
 import { expect } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
 import { Page } from "playwright";
 import { logger } from "@formbricks/logger";
 import { TProjectConfigChannel } from "@formbricks/types/project";
+import { CreateSurveyParams, CreateSurveyWithLogicParams } from "@/playwright/utils/mock";
 
 export const signUpAndLogin = async (
   page: Page,
@@ -157,6 +157,28 @@ export const signupUsingInviteToken = async (page: Page, name: string, email: st
   await page.getByRole("button", { name: "Login with Email" }).click();
 };
 
+/**
+ * Helper function to fill content into a rich text editor (contenteditable div).
+ * The rich text editor uses a contenteditable div with class "editor-input" instead of a regular input.
+ *
+ * @param page - Playwright Page object
+ * @param labelText - The label text to find the editor (e.g., "Note*", "Description")
+ * @param content - The text content to fill into the editor
+ */
+export const fillRichTextEditor = async (page: Page, labelText: string, content: string): Promise<void> => {
+  // Find the editor by locating the label and then finding the .editor-input within the same form group
+  const label = page.locator(`label:has-text("${labelText}")`);
+  const editorContainer = label.locator("..").locator("..");
+  const editor = editorContainer.locator(".editor-input").first();
+
+  await editor.click();
+  // Clear existing content by selecting all and deleting
+  await editor.press("Meta+a"); // Cmd+A on Mac, Ctrl+A is handled automatically by Playwright
+  await editor.press("Backspace");
+  // Type the new content
+  await editor.pressSequentially(content, { delay: 50 });
+};
+
 export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
   const addQuestion = "Add questionAdd a new question to your survey";
 
@@ -169,19 +191,22 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
   await expect(page.locator("#welcome-toggle")).toBeVisible();
   await page.getByText("Welcome Card").click();
   await page.locator("#welcome-toggle").check();
-  await page.getByLabel("Note*").fill(params.welcomeCard.headline);
-  await page.locator("form").getByText("Thanks for providing your").fill(params.welcomeCard.description);
+
+  // Use the helper function for rich text editors
+  await fillRichTextEditor(page, "Note*", params.welcomeCard.headline);
+  await fillRichTextEditor(page, "Welcome message", params.welcomeCard.description);
+
   await page.getByText("Welcome CardOn").click();
 
   // Open Text Question
   await page.getByRole("main").getByText("What would you like to know?").click();
 
-  await page.getByLabel("Question*").fill(params.openTextQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.openTextQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.openTextQuestion.description);
+  await fillRichTextEditor(page, "Description", params.openTextQuestion.description);
   await page.getByLabel("Placeholder").fill(params.openTextQuestion.placeholder);
 
-  await page.locator("p").filter({ hasText: params.openTextQuestion.question }).click();
+  await page.locator("h3").filter({ hasText: params.openTextQuestion.question }).click();
 
   // Single Select Question
   await page
@@ -190,9 +215,9 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Single-Select" }).click();
-  await page.getByLabel("Question*").fill(params.singleSelectQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.singleSelectQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.singleSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.singleSelectQuestion.description);
   await page.getByPlaceholder("Option 1").fill(params.singleSelectQuestion.options[0]);
   await page.getByPlaceholder("Option 2").fill(params.singleSelectQuestion.options[1]);
   await page.getByRole("button", { name: 'Add "Other"', exact: true }).click();
@@ -203,10 +228,10 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .filter({ hasText: new RegExp(`^${addQuestion}$`) })
     .nth(1)
     .click();
-  await page.getByRole("button", { name: "Multi-Select" }).click();
-  await page.getByLabel("Question*").fill(params.multiSelectQuestion.question);
+  await page.getByRole("button", { name: "Multi-Select Ask respondents" }).click();
+  await fillRichTextEditor(page, "Question*", params.multiSelectQuestion.question);
   await page.getByRole("button", { name: "Add description", exact: true }).click();
-  await page.locator('input[name="subheader"]').fill(params.multiSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.multiSelectQuestion.description);
   await page.getByPlaceholder("Option 1").fill(params.multiSelectQuestion.options[0]);
   await page.getByPlaceholder("Option 2").fill(params.multiSelectQuestion.options[1]);
   await page.getByPlaceholder("Option 3").fill(params.multiSelectQuestion.options[2]);
@@ -218,9 +243,9 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Rating" }).click();
-  await page.getByLabel("Question*").fill(params.ratingQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.ratingQuestion.question);
   await page.getByRole("button", { name: "Add description", exact: true }).click();
-  await page.locator('input[name="subheader"]').fill(params.ratingQuestion.description);
+  await fillRichTextEditor(page, "Description", params.ratingQuestion.description);
   await page.getByPlaceholder("Not good").fill(params.ratingQuestion.lowLabel);
   await page.getByPlaceholder("Very satisfied").fill(params.ratingQuestion.highLabel);
 
@@ -231,7 +256,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Net Promoter Score (NPS)" }).click();
-  await page.getByLabel("Question*").fill(params.npsQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.npsQuestion.question);
   await page.getByLabel("Lower label").fill(params.npsQuestion.lowLabel);
   await page.getByLabel("Upper label").fill(params.npsQuestion.highLabel);
 
@@ -242,7 +267,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Statement (Call to Action)" }).click();
-  await page.getByPlaceholder("Your question here. Recall").fill(params.ctaQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.ctaQuestion.question);
   await page.getByPlaceholder("Finish").fill(params.ctaQuestion.buttonLabel);
 
   // Consent Question
@@ -252,7 +277,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Consent" }).click();
-  await page.getByLabel("Question*").fill(params.consentQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.consentQuestion.question);
   await page.getByPlaceholder("I agree to the terms and").fill(params.consentQuestion.checkboxLabel);
 
   // Picture Select Question
@@ -262,9 +287,9 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Picture Selection" }).click();
-  await page.getByLabel("Question*").fill(params.pictureSelectQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.pictureSelectQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.pictureSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.pictureSelectQuestion.description);
 
   // Handle file uploads
   await uploadFileForFileUploadQuestion(page);
@@ -276,7 +301,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "File Upload" }).click();
-  await page.getByLabel("Question*").fill(params.fileUploadQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.fileUploadQuestion.question);
 
   // Matrix Upload Question
   await page
@@ -285,9 +310,9 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Matrix" }).click();
-  await page.getByLabel("Question*").fill(params.matrix.question);
+  await fillRichTextEditor(page, "Question*", params.matrix.question);
   await page.getByRole("button", { name: "Add description", exact: true }).click();
-  await page.locator('input[name="subheader"]').fill(params.matrix.description);
+  await fillRichTextEditor(page, "Description", params.matrix.description);
   await page.locator("#row-0").click();
   await page.locator("#row-0").fill(params.matrix.rows[0]);
   await page.locator("#row-1").click();
@@ -313,7 +338,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Address" }).click();
-  await page.getByLabel("Question*").fill(params.address.question);
+  await fillRichTextEditor(page, "Question*", params.address.question);
   await page.getByRole("row", { name: "Address Line 2" }).getByRole("switch").nth(1).click();
   await page.getByRole("row", { name: "City" }).getByRole("cell").nth(2).click();
   await page.getByRole("row", { name: "State" }).getByRole("switch").nth(1).click();
@@ -327,7 +352,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Contact Info" }).click();
-  await page.getByLabel("Question*").fill(params.contactInfo.question);
+  await fillRichTextEditor(page, "Question*", params.contactInfo.question);
   await page.getByRole("row", { name: "Last Name" }).getByRole("switch").nth(1).click();
   await page.getByRole("row", { name: "Email" }).getByRole("switch").nth(1).click();
   await page.getByRole("row", { name: "Phone" }).getByRole("switch").nth(1).click();
@@ -340,7 +365,7 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Ranking" }).click();
-  await page.getByLabel("Question*").fill(params.ranking.question);
+  await fillRichTextEditor(page, "Question*", params.ranking.question);
   await page.getByPlaceholder("Option 1").click();
   await page.getByPlaceholder("Option 1").fill(params.ranking.choices[0]);
   await page.getByPlaceholder("Option 2").click();
@@ -354,15 +379,6 @@ export const createSurvey = async (page: Page, params: CreateSurveyParams) => {
   await page.getByRole("button", { name: "Add option" }).click();
   await page.getByPlaceholder("Option 5").click();
   await page.getByPlaceholder("Option 5").fill(params.ranking.choices[4]);
-
-  // Thank You Card
-  await page
-    .locator("div")
-    .filter({ hasText: /^Thank you!Ending card$/ })
-    .nth(1)
-    .click();
-  await page.getByLabel("Note*").fill(params.thankYouCard.headline);
-  await page.locator('input[name="subheader"]').fill(params.thankYouCard.description);
 };
 
 export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWithLogicParams) => {
@@ -391,19 +407,22 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await expect(page.locator("#welcome-toggle")).toBeVisible();
   await page.getByText("Welcome Card").click();
   await page.locator("#welcome-toggle").check();
-  await page.getByLabel("Note*").fill(params.welcomeCard.headline);
-  await page.locator("form").getByText("Thanks for providing your").fill(params.welcomeCard.description);
+
+  // Use the helper function for rich text editors
+  await fillRichTextEditor(page, "Note*", params.welcomeCard.headline);
+  await fillRichTextEditor(page, "Welcome message", params.welcomeCard.description);
+
   await page.getByText("Welcome CardOn").click();
 
   // Open Text Question
   await page.getByRole("main").getByText("What would you like to know?").click();
 
-  await page.getByLabel("Question*").fill(params.openTextQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.openTextQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.openTextQuestion.description);
+  await fillRichTextEditor(page, "Description", params.openTextQuestion.description);
   await page.getByLabel("Placeholder").fill(params.openTextQuestion.placeholder);
 
-  await page.locator("p").filter({ hasText: params.openTextQuestion.question }).click();
+  await page.locator("h3").filter({ hasText: params.openTextQuestion.question }).click();
 
   // Single Select Question
   await page
@@ -412,13 +431,12 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Single-Select" }).click();
-  await page.getByLabel("Question*").fill(params.singleSelectQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.singleSelectQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.singleSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.singleSelectQuestion.description);
   await page.getByPlaceholder("Option 1").fill(params.singleSelectQuestion.options[0]);
   await page.getByPlaceholder("Option 2").fill(params.singleSelectQuestion.options[1]);
   await page.getByRole("button", { name: 'Add "Other"', exact: true }).click();
-  await page.getByLabel("Required").click();
 
   // Multi Select Question
   await page
@@ -426,10 +444,10 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .filter({ hasText: new RegExp(`^${addQuestion}$`) })
     .nth(1)
     .click();
-  await page.getByRole("button", { name: "Multi-Select" }).click();
-  await page.getByLabel("Question*").fill(params.multiSelectQuestion.question);
+  await page.getByRole("button", { name: "Multi-Select Ask respondents" }).click();
+  await fillRichTextEditor(page, "Question*", params.multiSelectQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.multiSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.multiSelectQuestion.description);
   await page.getByPlaceholder("Option 1").fill(params.multiSelectQuestion.options[0]);
   await page.getByPlaceholder("Option 2").fill(params.multiSelectQuestion.options[1]);
   await page.getByPlaceholder("Option 3").fill(params.multiSelectQuestion.options[2]);
@@ -441,9 +459,9 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Picture Selection" }).click();
-  await page.getByLabel("Question*").fill(params.pictureSelectQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.pictureSelectQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.pictureSelectQuestion.description);
+  await fillRichTextEditor(page, "Description", params.pictureSelectQuestion.description);
   const fileInput = page.locator('input[type="file"]');
   const response1 = await fetch("https://formbricks-cdn.s3.eu-central-1.amazonaws.com/puppy-1-small.jpg");
   const response2 = await fetch("https://formbricks-cdn.s3.eu-central-1.amazonaws.com/puppy-2-small.jpg");
@@ -463,8 +481,6 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     },
   ]);
 
-  await page.getByLabel("Required").click();
-
   // Rating Question
   await page
     .locator("div")
@@ -472,9 +488,9 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Rating" }).click();
-  await page.getByLabel("Question*").fill(params.ratingQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.ratingQuestion.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.ratingQuestion.description);
+  await fillRichTextEditor(page, "Description", params.ratingQuestion.description);
   await page.getByPlaceholder("Not good").fill(params.ratingQuestion.lowLabel);
   await page.getByPlaceholder("Very satisfied").fill(params.ratingQuestion.highLabel);
 
@@ -485,7 +501,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Net Promoter Score (NPS)" }).click();
-  await page.getByLabel("Question*").fill(params.npsQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.npsQuestion.question);
   await page.getByLabel("Lower label").fill(params.npsQuestion.lowLabel);
   await page.getByLabel("Upper label").fill(params.npsQuestion.highLabel);
 
@@ -496,7 +512,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Ranking" }).click();
-  await page.getByLabel("Question*").fill(params.ranking.question);
+  await fillRichTextEditor(page, "Question*", params.ranking.question);
   await page.getByPlaceholder("Option 1").click();
   await page.getByPlaceholder("Option 1").fill(params.ranking.choices[0]);
   await page.getByPlaceholder("Option 2").click();
@@ -510,7 +526,6 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("button", { name: "Add option" }).click();
   await page.getByPlaceholder("Option 5").click();
   await page.getByPlaceholder("Option 5").fill(params.ranking.choices[4]);
-  await page.getByLabel("Required").click();
 
   // Matrix Question
   await page
@@ -519,9 +534,9 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Matrix" }).click();
-  await page.getByLabel("Question*").fill(params.matrix.question);
+  await fillRichTextEditor(page, "Question*", params.matrix.question);
   await page.getByRole("button", { name: "Add description" }).click();
-  await page.locator('input[name="subheader"]').fill(params.matrix.description);
+  await fillRichTextEditor(page, "Description", params.matrix.description);
   await page.locator("#row-0").click();
   await page.locator("#row-0").fill(params.matrix.rows[0]);
   await page.locator("#row-1").click();
@@ -547,9 +562,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Statement (Call to Action)" }).click();
-  await page.getByPlaceholder("Your question here. Recall").fill(params.ctaQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.ctaQuestion.question);
   await page.getByPlaceholder("Finish").fill(params.ctaQuestion.buttonLabel);
-  await page.getByLabel("Required").click();
 
   // Consent Question
   await page
@@ -558,7 +572,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Consent" }).click();
-  await page.getByLabel("Question*").fill(params.consentQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.consentQuestion.question);
   await page.getByPlaceholder("I agree to the terms and").fill(params.consentQuestion.checkboxLabel);
 
   // File Upload Question
@@ -568,7 +582,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "File Upload" }).click();
-  await page.getByLabel("Question*").fill(params.fileUploadQuestion.question);
+  await fillRichTextEditor(page, "Question*", params.fileUploadQuestion.question);
 
   // Date Question
   await page
@@ -577,8 +591,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Date" }).click();
-  await page.getByLabel("Question*").fill(params.date.question);
-  await page.getByLabel("Required").click();
+  await fillRichTextEditor(page, "Question*", params.date.question);
 
   // Cal Question
   await page
@@ -587,8 +600,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Schedule a meeting" }).click();
-  await page.getByLabel("Question*").fill(params.cal.question);
-  await page.getByLabel("Required").click();
+  await fillRichTextEditor(page, "Question*", params.cal.question);
 
   // Fill Address Question
   await page
@@ -597,7 +609,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
     .nth(1)
     .click();
   await page.getByRole("button", { name: "Address" }).click();
-  await page.getByLabel("Question*").fill(params.address.question);
+  await fillRichTextEditor(page, "Question*", params.address.question);
   await page.getByRole("row", { name: "Address Line 2" }).getByRole("switch").nth(1).click();
   await page.getByRole("row", { name: "City" }).getByRole("cell").nth(2).click();
   await page.getByRole("row", { name: "State" }).getByRole("switch").nth(1).click();
@@ -606,8 +618,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
 
   // Adding logic
   // Open Text Question
-  await page.locator("p", { hasText: params.openTextQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.openTextQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is submitted" }).click();
@@ -633,18 +645,20 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("option", { name: "secret" }).click();
   await page.locator("#action-2-operator").click();
   await page.getByRole("option", { name: "Assign =" }).click();
-  await page.getByRole("textbox", { name: "Value" }).click();
-  await page.getByRole("textbox", { name: "Value" }).fill("This ");
+  await page.locator("#action-2-value-input").click();
+  await page.locator("#action-2-value-input").fill("1");
 
   // Single Select Question
-  await page.locator("p", { hasText: params.singleSelectQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.singleSelectQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "Equals one of" }).click();
   await page.locator("#condition-0-0-conditionMatchValue").click();
   await page.getByRole("option", { name: params.singleSelectQuestion.options[0] }).click();
   await page.getByRole("option", { name: params.singleSelectQuestion.options[1] }).click();
+  await page.locator("html").click();
+  await page.waitForSelector('[data-testid="dropdown-menu-content"]', { state: "hidden", timeout: 3000 });
   await page.locator("#action-0-objective").click();
   await page.getByRole("option", { name: "Calculate" }).click();
   await page.locator("#action-0-variableId").click();
@@ -665,8 +679,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("is ");
 
   // Multi Select Question
-  await page.locator("p", { hasText: params.multiSelectQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.multiSelectQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "Includes all of" }).click();
@@ -674,6 +688,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("option", { name: params.multiSelectQuestion.options[0] }).click();
   await page.getByRole("option", { name: params.multiSelectQuestion.options[1] }).click();
   await page.getByRole("option", { name: params.multiSelectQuestion.options[2] }).click();
+  await page.locator("html").click();
+  await page.waitForSelector('[data-testid="dropdown-menu-content"]', { state: "hidden", timeout: 3000 });
   await page.locator("#condition-0-0-dropdown").click();
   await page.getByRole("menuitem", { name: "Add condition below" }).click();
   await page.locator("#condition-0-1-conditionValue").click();
@@ -706,8 +722,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("a ");
 
   // Picture Select Question
-  await page.locator("p", { hasText: params.pictureSelectQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.pictureSelectQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is submitted" }).click();
@@ -731,8 +747,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("secret ");
 
   // Rating Question
-  await page.locator("p", { hasText: params.ratingQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.ratingQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: ">=" }).click();
@@ -758,8 +774,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("message ");
 
   // NPS Question
-  await page.locator("p", { hasText: params.npsQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.npsQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: ">", exact: true }).click();
@@ -791,7 +807,10 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("menuitem", { name: "Create group" }).click();
   await page.locator("#condition-1-0-dropdown").click();
   await page.getByRole("menuitem", { name: "Add condition below" }).click();
-  await page.getByText("and").nth(4).click();
+
+  await page.getByRole("combobox").filter({ hasText: "all are true" }).nth(1).click();
+  await page.getByText("any is true").click();
+
   await page.locator("#condition-1-1-conditionValue").click();
   await page
     .getByRole("option")
@@ -819,8 +838,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("for ");
 
   // Ranking Question
-  await page.locator("p", { hasText: params.ranking.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.ranking.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is skipped" }).click();
@@ -844,8 +863,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("textbox", { name: "Value" }).fill("e2e ");
 
   // Matrix Question
-  await page.locator("p", { hasText: params.matrix.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.matrix.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is completely submitted" }).click();
@@ -877,14 +896,15 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("option", { name: params.ctaQuestion.question }).click();
 
   // CTA Question
-  await page.locator("p", { hasText: params.ctaQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.ctaQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is skipped" }).click();
   await page.locator("#condition-0-0-dropdown").click();
   await page.getByRole("menuitem", { name: "Add condition below" }).click();
-  await page.getByText("and", { exact: true }).click();
+  await page.getByRole("combobox").filter({ hasText: "all are true" }).first().click();
+  await page.getByText("any is true").click();
   await page.locator("#condition-0-1-dropdown").click();
   await page.getByRole("menuitem", { name: "Create group" }).click();
   await page.locator("#condition-1-0-dropdown").click();
@@ -905,8 +925,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.locator("#action-0-value-input").fill("1");
 
   // Consent Question
-  await page.locator("p", { hasText: params.consentQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.consentQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#action-0-objective").click();
   await page.getByRole("option", { name: "Calculate" }).click();
@@ -918,8 +938,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.locator("#action-0-value-input").fill("2");
 
   // File Upload Question
-  await page.locator("p", { hasText: params.fileUploadQuestion.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.fileUploadQuestion.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#action-0-objective").click();
   await page.getByRole("option", { name: "Calculate" }).click();
@@ -936,7 +956,7 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split("T")[0];
 
   await page.getByRole("main").getByText(params.date.question).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
 
   await page.getByPlaceholder("Value").fill(today);
@@ -965,8 +985,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.locator("#action-0-value-input").fill("1");
 
   // Cal Question
-  await page.locator("p", { hasText: params.cal.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.cal.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#condition-0-0-conditionOperator").click();
   await page.getByRole("option", { name: "is skipped" }).click();
@@ -980,8 +1000,8 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.locator("#action-0-value-input").fill("1");
 
   // Address Question
-  await page.locator("p", { hasText: params.address.question }).click();
-  await page.getByRole("button", { name: "Show Advanced Settings" }).click();
+  await page.getByRole("heading", { name: params.address.question }).click();
+  await page.getByRole("button", { name: "Toggle advanced settings" }).click();
   await page.getByRole("button", { name: "Add logic" }).click();
   await page.locator("#action-0-objective").click();
   await page.getByRole("option", { name: "Calculate" }).click();
@@ -1011,13 +1031,4 @@ export const createSurveyWithLogic = async (page: Page, params: CreateSurveyWith
   await page.getByRole("option", { name: "Multiply *" }).click();
   await page.locator("#action-2-value-input").click();
   await page.locator("#action-2-value-input").fill("2");
-
-  // Thank You Card
-  await page
-    .locator("div")
-    .filter({ hasText: /^Thank you!Ending card$/ })
-    .nth(1)
-    .click();
-  await page.getByLabel("Note*").fill(params.thankYouCard.headline);
-  await page.locator('input[name="subheader"]').fill(params.thankYouCard.description);
 };

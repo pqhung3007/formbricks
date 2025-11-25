@@ -1,5 +1,6 @@
-import { cn } from "@/modules/ui/lib/utils";
 import React, { useState } from "react";
+import { isValidEmail } from "@/lib/utils/email";
+import { cn } from "@/modules/ui/lib/utils";
 
 interface FollowUpActionMultiEmailInputProps {
   emails: string[];
@@ -15,15 +16,12 @@ const FollowUpActionMultiEmailInput = ({
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState("");
 
-  // Email validation regex
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   const handleAddEmail = () => {
     const email = inputValue.trim();
 
     if (!email) return;
 
-    if (!emailRegex.test(email)) {
+    if (!isValidEmail(email)) {
       setError("Please enter a valid email address");
       return;
     }

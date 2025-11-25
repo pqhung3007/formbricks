@@ -1,30 +1,52 @@
 "use client";
 
-import { capitalizeFirstLetter } from "@/lib/utils/strings";
-import { DeleteDialog } from "@/modules/ui/components/delete-dialog";
 import { Table } from "@tanstack/react-table";
-import { useTranslate } from "@tolgee/react";
-import { Trash2Icon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { ArrowDownToLineIcon, Loader2Icon, Trash2Icon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TResponseWithQuotas } from "@formbricks/types/responses";
+import { Button } from "@/modules/ui/components/button";
+import { DecrementQuotasCheckbox } from "@/modules/ui/components/decrement-quotas-checkbox";
+import { DeleteDialog } from "@/modules/ui/components/delete-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/modules/ui/components/dropdown-menu";
+import { cn } from "@/modules/ui/lib/utils";
 
 interface SelectedRowSettingsProps<T> {
   table: Table<T>;
-  deleteRows: (rowId: string[]) => void;
+  updateRowList: (rowId: string[]) => void;
   type: "response" | "contact";
-  deleteAction: (id: string) => Promise<void>;
+  deleteAction: (id: string, params?: Record<string, boolean>) => Promise<void>;
+  downloadRowsAction?: (rowIds: string[], format: string) => Promise<void>;
+  isQuotasAllowed: boolean;
 }
 
 export const SelectedRowSettings = <T,>({
   table,
-  deleteRows,
+  updateRowList,
   type,
   deleteAction,
+  downloadRowsAction,
+  isQuotasAllowed,
 }: SelectedRowSettingsProps<T>) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { t } = useTranslate();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { t } = useTranslation();
   const selectedRowCount = table.getFilteredSelectedRowModel().rows.length;
+
+  const hasQuotas =
+    type === "response" &&
+    table
+      .getFilteredSelectedRowModel()
+      .rows.some((row) => (row.original as TResponseWithQuotas).quotas?.length);
+
+  const [decrementQuotas, setDecrementQuotas] = useState<boolean>(hasQuotas);
 
   // Toggle all rows selection
   const handleToggleAllRowsSelection = useCallback(
@@ -34,6 +56,10 @@ export const SelectedRowSettings = <T,>({
     [table]
   );
 
+  useEffect(() => {
+    setDecrementQuotas(hasQuotas);
+  }, [hasQuotas]);
+
   // Handle deletion
   const handleDelete = async () => {
     try {
@@ -41,20 +67,23 @@ export const SelectedRowSettings = <T,>({
       const rowsToBeDeleted = table.getFilteredSelectedRowModel().rows.map((row) => row.id);
 
       if (type === "response") {
-        await Promise.all(rowsToBeDeleted.map((responseId) => deleteAction(responseId)));
-      } else if (type === "contact") {
-        await Promise.all(rowsToBeDeleted.map((responseId) => deleteAction(responseId)));
+        await Promise.all(rowsToBeDeleted.map((rowId) => deleteAction(rowId, { decrementQuotas })));
+      } else {
+        await Promise.all(rowsToBeDeleted.map((rowId) => deleteAction(rowId)));
       }
 
-      deleteRows(rowsToBeDeleted);
-      toast.success(t("common.table_items_deleted_successfully", { type: capitalizeFirstLetter(type) }));
+      // Update the row list UI
+      updateRowList(rowsToBeDeleted);
+      const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+      toast.success(t("common.table_items_deleted_successfully", { type: capitalizedType }));
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message);
       } else {
+        const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
         toast.error(
           t("common.an_unknown_error_occurred_while_deleting_table_items", {
-            type: capitalizeFirstLetter(type),
+            type: capitalizedType,
           })
         );
       }
@@ -64,42 +93,105 @@ export const SelectedRowSettings = <T,>({
     }
   };
 
+  // Handle download selected rows
+  const handleDownloadSelectedRows = async (format: string) => {
+    setIsDownloading(true);
+    const rowsToDownload = table.getFilteredSelectedRowModel().rows.map((row) => row.id);
+    if (downloadRowsAction && rowsToDownload.length > 0) {
+      await downloadRowsAction(rowsToDownload, format);
+    }
+    setIsDownloading(false);
+  };
+
   // Helper component for the separator
   const Separator = () => <div>|</div>;
 
-  // Helper component for selectable options
-  const SelectableOption = ({ label, onClick }: { label: string; onClick: () => void }) => (
-    <div className="cursor-pointer rounded-md p-1 hover:bg-slate-500" onClick={onClick}>
-      {label}
-    </div>
-  );
+  const quotasDialogText = isQuotasAllowed
+    ? t("environments.contacts.delete_contact_confirmation_with_quotas", {
+        value: selectedRowCount,
+      })
+    : t("environments.contacts.delete_contact_confirmation");
+
+  const deleteDialogText =
+    type === "response" ? t("environments.surveys.responses.delete_response_confirmation") : quotasDialogText;
 
   return (
-    <div className="flex items-center gap-x-2 rounded-md bg-slate-900 p-1 px-2 text-xs text-white">
-      <div className="lowercase">
-        {selectedRowCount} {type === "response" ? t("common.responses") : t("common.contacts")}
-        {t("common.selected")}
-      </div>
-      <Separator />
-      <SelectableOption label={t("common.select_all")} onClick={() => handleToggleAllRowsSelection(true)} />
-      <Separator />
-      <SelectableOption
-        label={t("common.clear_selection")}
-        onClick={() => handleToggleAllRowsSelection(false)}
-      />
-      <Separator />
-      <div
-        className="cursor-pointer rounded-md bg-slate-500 p-1 hover:bg-slate-600"
-        onClick={() => setIsDeleteDialogOpen(true)}>
-        <Trash2Icon strokeWidth={1.5} className="h-4 w-4" />
+    <>
+      <div className="bg-primary flex items-center gap-x-2 rounded-md p-1 px-2 text-xs text-white">
+        <div className="lowercase">
+          {`${selectedRowCount} ${type === "response" ? t("common.responses") : t("common.contacts")} ${t("common.selected")}`}
+        </div>
+        <Separator />
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 border-none px-2"
+          onClick={() => handleToggleAllRowsSelection(true)}>
+          {t("common.select_all")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 border-none px-2"
+          onClick={() => handleToggleAllRowsSelection(false)}>
+          {t("common.clear_selection")}
+        </Button>
+        <Separator />
+        {downloadRowsAction && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              asChild
+              className={cn(isDownloading && "cursor-not-allowed opacity-50")}
+              disabled={isDownloading}>
+              <Button variant="outline" size="sm" className="h-6 gap-1 border-none px-2">
+                {isDownloading ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <ArrowDownToLineIcon />}
+                {t("common.download")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={() => {
+                  handleDownloadSelectedRows("csv");
+                }}>
+                <p className="text-slate-700">{t("environments.surveys.summary.selected_responses_csv")}</p>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  handleDownloadSelectedRows("xlsx");
+                }}>
+                <p>{t("environments.surveys.summary.selected_responses_excel")}</p>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-6 gap-1 px-2"
+          onClick={() => setIsDeleteDialogOpen(true)}>
+          {t("common.delete")}
+          <Trash2Icon />
+        </Button>
       </div>
       <DeleteDialog
         open={isDeleteDialogOpen}
         setOpen={setIsDeleteDialogOpen}
-        deleteWhat={t(`common.${type}`)}
+        deleteWhat={
+          type === "response"
+            ? t("common.count_responses", { value: selectedRowCount })
+            : t("common.count_contacts", { value: selectedRowCount })
+        }
         onDelete={handleDelete}
         isDeleting={isDeleting}
-      />
-    </div>
+        text={deleteDialogText}>
+        {hasQuotas && (
+          <DecrementQuotasCheckbox
+            title={t("environments.surveys.responses.bulk_delete_response_quotas")}
+            checked={decrementQuotas ?? hasQuotas}
+            onCheckedChange={setDecrementQuotas}
+          />
+        )}
+      </DeleteDialog>
+    </>
   );
 };

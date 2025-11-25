@@ -1,16 +1,18 @@
 "use client";
 
-import { getFormattedErrorMessage } from "@/lib/utils/helper";
-import { Button } from "@/modules/ui/components/button";
-import { Tag } from "@/modules/ui/components/tag";
-import { TagsCombobox } from "@/modules/ui/components/tags-combobox";
-import { useTranslate } from "@tolgee/react";
-import { AlertCircleIcon, SettingsIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { logger } from "@formbricks/logger";
+import { TResponse } from "@formbricks/types/responses";
 import { TTag } from "@formbricks/types/tags";
+import { TUserLocale } from "@formbricks/types/user";
+import { getFormattedErrorMessage } from "@/lib/utils/helper";
+import { TagError } from "@/modules/projects/settings/types/tag";
+import { Tag } from "@/modules/ui/components/tag";
+import { TagsCombobox } from "@/modules/ui/components/tags-combobox";
 import { createTagAction, createTagToResponseAction, deleteTagOnResponseAction } from "../actions";
+import { SingleResponseCardMetadata } from "./SingleResponseCardMetadata";
 
 interface ResponseTagsWrapperProps {
   tags: {
@@ -22,6 +24,8 @@ interface ResponseTagsWrapperProps {
   environmentTags: TTag[];
   updateFetchedResponses: () => void;
   isReadOnly?: boolean;
+  response: TResponse;
+  locale: TUserLocale;
 }
 
 export const ResponseTagsWrapper: React.FC<ResponseTagsWrapperProps> = ({
@@ -31,21 +35,27 @@ export const ResponseTagsWrapper: React.FC<ResponseTagsWrapperProps> = ({
   environmentTags,
   updateFetchedResponses,
   isReadOnly,
+  response,
+  locale,
 }) => {
-  const { t } = useTranslate();
-  const router = useRouter();
+  const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState("");
   const [open, setOpen] = React.useState(false);
   const [tagsState, setTagsState] = useState(tags);
   const [tagIdToHighlight, setTagIdToHighlight] = useState("");
+  const [isLoadingTagOperation, setIsLoadingTagOperation] = useState(false);
 
   const onDelete = async (tagId: string) => {
-    try {
-      await deleteTagOnResponseAction({ responseId, tagId });
+    setIsLoadingTagOperation(true);
+    const deleteTagResponse = await deleteTagOnResponseAction({ responseId, tagId });
+    if (deleteTagResponse?.data) {
       updateFetchedResponses();
-    } catch (e) {
+    } else {
+      const errorMessage = getFormattedErrorMessage(deleteTagResponse);
+      logger.error({ errorMessage }, "Error deleting tag");
       toast.error(t("environments.surveys.responses.an_error_occurred_deleting_the_tag"));
     }
+    setIsLoadingTagOperation(false);
   };
 
   useEffect(() => {
@@ -58,20 +68,72 @@ export const ResponseTagsWrapper: React.FC<ResponseTagsWrapperProps> = ({
     return () => clearTimeout(timeoutId);
   }, [tagIdToHighlight]);
 
+  const handleCreateTag = async (tagName: string) => {
+    setIsLoadingTagOperation(true);
+    const newTagResponse = await createTagAction({ environmentId, tagName });
+
+    if (!newTagResponse?.data) {
+      toast.error(t("environments.surveys.responses.an_error_occurred_creating_the_tag"));
+      return;
+    }
+
+    if (!newTagResponse.data.ok) {
+      const errorMessage = newTagResponse.data.error;
+      if (errorMessage?.code === TagError.TAG_NAME_ALREADY_EXISTS) {
+        toast.error(t("environments.surveys.responses.tag_already_exists"), {
+          duration: 2000,
+        });
+      } else {
+        toast.error(t("environments.surveys.responses.an_error_occurred_creating_the_tag"));
+      }
+      return;
+    }
+
+    const newTag = newTagResponse.data.data;
+    const createTagToResponseResponse = await createTagToResponseAction({ responseId, tagId: newTag.id });
+    if (createTagToResponseResponse?.data) {
+      setTagsState((prevTags) => [...prevTags, { tagId: newTag.id, tagName: newTag.name }]);
+      setTagIdToHighlight(newTag.id);
+      updateFetchedResponses();
+      setSearchValue("");
+      setOpen(false);
+    } else {
+      const errorMessage = getFormattedErrorMessage(createTagToResponseResponse);
+      logger.error({ errorMessage });
+      toast.error(errorMessage);
+    }
+    setIsLoadingTagOperation(false);
+  };
+
+  const handleAddTag = async (tagId: string) => {
+    setIsLoadingTagOperation(true);
+    setTagsState((prevTags) => [
+      ...prevTags,
+      {
+        tagId,
+        tagName: environmentTags?.find((tag) => tag.id === tagId)?.name ?? "",
+      },
+    ]);
+
+    try {
+      await createTagToResponseAction({ responseId, tagId });
+      updateFetchedResponses();
+      setSearchValue("");
+      setOpen(false);
+    } catch (error) {
+      toast.error(t("environments.surveys.responses.an_error_occurred_adding_the_tag"));
+      console.error("Error adding tag:", error);
+      // Revert the tag if the action failed
+      setTagsState((prevTags) => prevTags.filter((tag) => tag.tagId !== tagId));
+    } finally {
+      setIsLoadingTagOperation(false);
+    }
+  };
+
   return (
-    <div className="flex items-center gap-3 border-t border-slate-200 px-6 py-4">
-      {!isReadOnly && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="cursor-pointer p-0"
-          onClick={() => {
-            router.push(`/environments/${environmentId}/project/tags`);
-          }}>
-          <SettingsIcon className="h-5 w-5 text-slate-500 hover:text-slate-600" />
-        </Button>
-      )}
+    <div className="flex items-center justify-between gap-4 border-t border-slate-200 px-6 py-3">
       <div className="flex flex-wrap items-center gap-2">
+        <SingleResponseCardMetadata response={response} locale={locale} />
         {tagsState?.map((tag) => (
           <Tag
             key={tag.tagId}
@@ -81,73 +143,20 @@ export const ResponseTagsWrapper: React.FC<ResponseTagsWrapperProps> = ({
             tags={tagsState}
             setTagsState={setTagsState}
             highlight={tagIdToHighlight === tag.tagId}
-            allowDelete={!isReadOnly}
+            allowDelete={!isReadOnly && !isLoadingTagOperation}
           />
         ))}
 
         {!isReadOnly && (
           <TagsCombobox
-            open={open}
+            open={open && !isLoadingTagOperation}
             setOpen={setOpen}
             searchValue={searchValue}
             setSearchValue={setSearchValue}
             tags={environmentTags?.map((tag) => ({ value: tag.id, label: tag.name })) ?? []}
             currentTags={tagsState.map((tag) => ({ value: tag.tagId, label: tag.tagName }))}
-            createTag={async (tagName) => {
-              setOpen(false);
-
-              const createTagResponse = await createTagAction({
-                environmentId,
-                tagName: tagName?.trim() ?? "",
-              });
-              if (createTagResponse?.data) {
-                setTagsState((prevTags) => [
-                  ...prevTags,
-                  {
-                    tagId: createTagResponse.data?.id ?? "",
-                    tagName: createTagResponse.data?.name ?? "",
-                  },
-                ]);
-                const createTagToResponseActionResponse = await createTagToResponseAction({
-                  responseId,
-                  tagId: createTagResponse.data.id,
-                });
-
-                if (createTagToResponseActionResponse?.data) {
-                  updateFetchedResponses();
-                  setSearchValue("");
-                }
-              } else {
-                const errorMessage = getFormattedErrorMessage(createTagResponse);
-                if (errorMessage.includes("Unique constraint failed on the fields")) {
-                  toast.error(t("environments.surveys.responses.tag_already_exists"), {
-                    duration: 2000,
-                    icon: <AlertCircleIcon className="h-5 w-5 text-orange-500" />,
-                  });
-                } else {
-                  toast.error(errorMessage ?? t("common.something_went_wrong_please_try_again"), {
-                    duration: 2000,
-                  });
-                }
-
-                setSearchValue("");
-              }
-            }}
-            addTag={(tagId) => {
-              setTagsState((prevTags) => [
-                ...prevTags,
-                {
-                  tagId,
-                  tagName: environmentTags?.find((tag) => tag.id === tagId)?.name ?? "",
-                },
-              ]);
-
-              createTagToResponseAction({ responseId, tagId }).then(() => {
-                updateFetchedResponses();
-                setSearchValue("");
-                setOpen(false);
-              });
-            }}
+            createTag={handleCreateTag}
+            addTag={handleAddTag}
           />
         )}
       </div>

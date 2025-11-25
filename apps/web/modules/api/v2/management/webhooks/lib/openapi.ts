@@ -1,3 +1,5 @@
+import { ZodOpenApiOperationObject, ZodOpenApiPathsObject } from "zod-openapi";
+import { ZWebhook } from "@formbricks/database/zod/webhooks";
 import { managementServer } from "@/modules/api/v2/management/lib/openapi";
 import {
   deleteWebhookEndpoint,
@@ -6,8 +8,6 @@ import {
 } from "@/modules/api/v2/management/webhooks/[webhookId]/lib/openapi";
 import { ZGetWebhooksFilter, ZWebhookInput } from "@/modules/api/v2/management/webhooks/types/webhooks";
 import { makePartialSchema, responseWithMetaSchema } from "@/modules/api/v2/types/openapi-response";
-import { ZodOpenApiOperationObject, ZodOpenApiPathsObject } from "zod-openapi";
-import { ZWebhook } from "@formbricks/database/zod/webhooks";
 
 export const getWebhooksEndpoint: ZodOpenApiOperationObject = {
   operationId: "getWebhooks",
@@ -16,7 +16,7 @@ export const getWebhooksEndpoint: ZodOpenApiOperationObject = {
   requestParams: {
     query: ZGetWebhooksFilter.sourceType(),
   },
-  tags: ["Management API > Webhooks"],
+  tags: ["Management API - Webhooks"],
   responses: {
     "200": {
       description: "Webhooks retrieved successfully.",
@@ -33,7 +33,7 @@ export const createWebhookEndpoint: ZodOpenApiOperationObject = {
   operationId: "createWebhook",
   summary: "Create a webhook",
   description: "Creates a webhook in the database.",
-  tags: ["Management API > Webhooks"],
+  tags: ["Management API - Webhooks"],
   requestBody: {
     required: true,
     description: "The webhook to create",

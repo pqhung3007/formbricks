@@ -85,6 +85,14 @@ class AuthorizationError extends Error {
   }
 }
 
+class TooManyRequestsError extends Error {
+  statusCode = 429;
+  constructor(message: string) {
+    super(message);
+    this.name = "TooManyRequestsError";
+  }
+}
+
 interface NetworkError {
   code: "network_error";
   message: string;
@@ -116,6 +124,7 @@ export {
   OperationNotAllowedError,
   AuthenticationError,
   AuthorizationError,
+  TooManyRequestsError,
 };
 export type { NetworkError, ForbiddenError };
 
@@ -137,3 +146,34 @@ export interface ApiErrorResponse {
   details?: Record<string, string | string[] | number | number[] | boolean | boolean[]>;
   responseMessage?: string;
 }
+
+/**
+ * Error types for UI display
+ */
+export type ClientErrorType = "rate_limit" | "general";
+
+export interface ClientErrorData {
+  /** Error type to determine which translations to use */
+  type: ClientErrorType;
+  /** Whether to show action buttons */
+  showButtons?: boolean;
+}
+
+/**
+ * Helper function to get error data from any error for UI display
+ */
+export const getClientErrorData = (error: Error): ClientErrorData => {
+  // Check by error name as fallback (in case instanceof fails due to module loading issues)
+  if (error.name === "TooManyRequestsError") {
+    return {
+      type: "rate_limit",
+      showButtons: false,
+    };
+  }
+
+  // Default to general error for any other error
+  return {
+    type: "general",
+    showButtons: true,
+  };
+};

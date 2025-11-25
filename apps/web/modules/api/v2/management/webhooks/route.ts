@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { authenticatedApiClient } from "@/modules/api/v2/auth/authenticated-api-client";
 import { responses } from "@/modules/api/v2/lib/response";
 import { handleApiError } from "@/modules/api/v2/lib/utils";
@@ -5,7 +6,6 @@ import { getEnvironmentIdFromSurveyIds } from "@/modules/api/v2/management/lib/h
 import { createWebhook, getWebhooks } from "@/modules/api/v2/management/webhooks/lib/webhook";
 import { ZGetWebhooksFilter, ZWebhookInput } from "@/modules/api/v2/management/webhooks/types/webhooks";
 import { hasPermission } from "@/modules/organization/settings/api-keys/lib/utils";
-import { NextRequest } from "next/server";
 
 export const GET = async (request: NextRequest) =>
   authenticatedApiClient({
@@ -43,35 +43,52 @@ export const POST = async (request: NextRequest) =>
     schemas: {
       body: ZWebhookInput,
     },
-    handler: async ({ authentication, parsedInput }) => {
+    handler: async ({ authentication, parsedInput, auditLog }) => {
       const { body } = parsedInput;
 
       if (!body) {
-        return handleApiError(request, {
-          type: "bad_request",
-          details: [{ field: "body", issue: "missing" }],
-        });
+        return handleApiError(
+          request,
+          {
+            type: "bad_request",
+            details: [{ field: "body", issue: "missing" }],
+          },
+          auditLog
+        );
       }
 
-      const environmentIdResult = await getEnvironmentIdFromSurveyIds(body.surveyIds);
+      if (body.surveyIds && body.surveyIds.length > 0) {
+        const environmentIdResult = await getEnvironmentIdFromSurveyIds(body.surveyIds);
 
-      if (!environmentIdResult.ok) {
-        return handleApiError(request, environmentIdResult.error);
+        if (!environmentIdResult.ok) {
+          return handleApiError(request, environmentIdResult.error, auditLog);
+        }
       }
 
       if (!hasPermission(authentication.environmentPermissions, body.environmentId, "POST")) {
-        return handleApiError(request, {
-          type: "forbidden",
-          details: [{ field: "environmentId", issue: "does not have permission to create webhook" }],
-        });
+        return handleApiError(
+          request,
+          {
+            type: "forbidden",
+            details: [{ field: "environmentId", issue: "does not have permission to create webhook" }],
+          },
+          auditLog
+        );
       }
 
       const createWebhookResult = await createWebhook(body);
 
       if (!createWebhookResult.ok) {
-        return handleApiError(request, createWebhookResult.error);
+        return handleApiError(request, createWebhookResult.error, auditLog);
+      }
+
+      if (auditLog) {
+        auditLog.targetId = createWebhookResult.data.id;
+        auditLog.newObject = createWebhookResult.data;
       }
 
       return responses.createdResponse(createWebhookResult);
     },
+    action: "created",
+    targetType: "webhook",
   });

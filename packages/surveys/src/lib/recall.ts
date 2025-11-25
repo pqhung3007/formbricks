@@ -1,34 +1,26 @@
+import { type TResponseData, type TResponseVariables } from "@formbricks/types/responses";
+import { type TSurveyQuestion, TSurveyQuestionTypeEnum } from "@formbricks/types/surveys/types";
 import { formatDateWithOrdinal, isValidDateString } from "@/lib/date-time";
 import { getLocalizedValue } from "@/lib/i18n";
-import { type TResponseData, type TResponseVariables } from "@formbricks/types/responses";
-import { type TSurveyQuestion } from "@formbricks/types/surveys/types";
 
 // Extracts the ID of recall question from a string containing the "recall" pattern.
 const extractId = (text: string): string | null => {
   const pattern = /#recall:([A-Za-z0-9_-]+)/;
   const match = text.match(pattern);
-  if (match && match[1]) {
-    return match[1];
-  } else {
-    return null;
-  }
+  return match?.[1] ?? null;
 };
 
 // Extracts the fallback value from a string containing the "fallback" pattern.
 const extractFallbackValue = (text: string): string => {
-  const pattern = /fallback:(\S*)#/;
+  const pattern = /fallback:([^#]*)#/;
   const match = text.match(pattern);
-  if (match && match[1]) {
-    return match[1];
-  } else {
-    return "";
-  }
+  return match?.[1] ?? "";
 };
 
 // Extracts the complete recall information (ID and fallback) from a headline string.
 const extractRecallInfo = (headline: string, id?: string): string | null => {
-  const idPattern = id ? id : "[A-Za-z0-9_-]+";
-  const pattern = new RegExp(`#recall:(${idPattern})\\/fallback:(\\S*)#`);
+  const idPattern = id ?? "[A-Za-z0-9_-]+";
+  const pattern = new RegExp(`#recall:(${idPattern})\\/fallback:([^#]*)#`);
   const match = headline.match(pattern);
   return match ? match[0] : null;
 };
@@ -47,7 +39,7 @@ export const replaceRecallInfo = (
     const recallItemId = extractId(recallInfo);
     if (!recallItemId) return modifiedText; // Return the text if no ID could be extracted
 
-    const fallback = extractFallbackValue(recallInfo).replaceAll("nbsp", " ");
+    const fallback = extractFallbackValue(recallInfo).replace(/nbsp/g, " ").trim();
     let value: string | null = null;
 
     // Fetching value from variables based on recallItemId
@@ -56,7 +48,7 @@ export const replaceRecallInfo = (
     }
 
     // Fetching value from responseData or attributes based on recallItemId
-    if (responseData[recallItemId]) {
+    if (responseData[recallItemId] !== undefined) {
       value = (responseData[recallItemId] as string) ?? fallback;
     }
 
@@ -70,7 +62,7 @@ export const replaceRecallInfo = (
     }
 
     // Replace the recallInfo in the text with the obtained or fallback value
-    modifiedText = modifiedText.replace(recallInfo, value || fallback);
+    modifiedText = modifiedText.replace(recallInfo, value?.toString() || fallback);
   }
 
   return modifiedText;
@@ -91,6 +83,18 @@ export const parseRecallInformation = (
     );
   }
   if (
+    question.subheader &&
+    question.subheader[languageCode].includes("recall:") &&
+    modifiedQuestion.subheader
+  ) {
+    modifiedQuestion.subheader[languageCode] = replaceRecallInfo(
+      getLocalizedValue(modifiedQuestion.subheader, languageCode),
+      responseData,
+      variables
+    );
+  }
+  if (
+    (question.type === TSurveyQuestionTypeEnum.CTA || question.type === TSurveyQuestionTypeEnum.Consent) &&
     question.subheader &&
     question.subheader[languageCode].includes("recall:") &&
     modifiedQuestion.subheader

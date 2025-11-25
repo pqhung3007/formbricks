@@ -1,7 +1,7 @@
-import { TResponseErrorCodesEnum } from "@/types/response-error-codes";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { err, ok } from "@formbricks/types/error-handlers";
 import { TResponseUpdate } from "@formbricks/types/responses";
+import { TResponseErrorCodesEnum } from "@/types/response-error-codes";
 import { ResponseQueue, delay } from "./response-queue";
 import { SurveyState } from "./survey-state";
 
@@ -51,7 +51,7 @@ describe("delay", () => {
   test("resolves after specified ms", async () => {
     const start = Date.now();
     await delay(50);
-    expect(Date.now() - start).toBeGreaterThanOrEqual(50);
+    expect(Date.now() - start).toBeGreaterThanOrEqual(49); // Using 49 to account for execution time
   });
 });
 
@@ -154,7 +154,7 @@ describe("ResponseQueue", () => {
 
   test("sendResponse calls updateResponse if responseId exists", async () => {
     surveyState.responseId = "resp1";
-    apiMock.updateResponse.mockResolvedValue(undefined);
+    apiMock.updateResponse.mockResolvedValue({ ok: true, data: { quotaFull: false } });
     const result = await queue.sendResponse(responseUpdate);
     expect(apiMock.updateResponse).toHaveBeenCalled();
     expect(result.ok).toBe(true);

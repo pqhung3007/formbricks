@@ -1,27 +1,28 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { extractRecallInfo } from "@/lib/utils/recall";
-import { findHiddenFieldUsedInLogic } from "@/modules/survey/editor/lib/utils";
-import { Button } from "@/modules/ui/components/button";
-import { Input } from "@/modules/ui/components/input";
-import { Label } from "@/modules/ui/components/label";
-import { Switch } from "@/modules/ui/components/switch";
-import { Tag } from "@/modules/ui/components/tag";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { useTranslate } from "@tolgee/react";
 import { EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TSurveyQuota } from "@formbricks/types/quota";
 import { TSurvey, TSurveyHiddenFields, TSurveyQuestionId } from "@formbricks/types/surveys/types";
 import { validateId } from "@formbricks/types/surveys/validation";
+import { cn } from "@/lib/cn";
+import { extractRecallInfo } from "@/lib/utils/recall";
+import { findHiddenFieldUsedInLogic, isUsedInQuota, isUsedInRecall } from "@/modules/survey/editor/lib/utils";
+import { Button } from "@/modules/ui/components/button";
+import { Input } from "@/modules/ui/components/input";
+import { Label } from "@/modules/ui/components/label";
+import { Tag } from "@/modules/ui/components/tag";
 
 interface HiddenFieldsCardProps {
   localSurvey: TSurvey;
   setLocalSurvey: (survey: TSurvey) => void;
   activeQuestionId: TSurveyQuestionId | null;
   setActiveQuestionId: (questionId: TSurveyQuestionId | null) => void;
+  quotas: TSurveyQuota[];
 }
 
 export const HiddenFieldsCard = ({
@@ -29,10 +30,11 @@ export const HiddenFieldsCard = ({
   localSurvey,
   setActiveQuestionId,
   setLocalSurvey,
+  quotas,
 }: HiddenFieldsCardProps) => {
   const open = activeQuestionId == "hidden";
   const [hiddenField, setHiddenField] = useState<string>("");
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const setOpen = (open: boolean) => {
     if (open) {
       // NOSONAR typescript:S2301 // the function usage is clear
@@ -84,6 +86,40 @@ export const HiddenFieldsCard = ({
       );
       return;
     }
+    const recallQuestionIdx = isUsedInRecall(localSurvey, fieldId);
+    if (recallQuestionIdx === -2) {
+      toast.error(
+        t("environments.surveys.edit.hidden_field_used_in_recall_welcome", { hiddenField: fieldId })
+      );
+      return;
+    }
+    if (recallQuestionIdx === localSurvey.questions.length) {
+      toast.error(
+        t("environments.surveys.edit.hidden_field_used_in_recall_ending_card", { hiddenField: fieldId })
+      );
+      return;
+    }
+    if (recallQuestionIdx !== -1) {
+      toast.error(
+        t("environments.surveys.edit.hidden_field_used_in_recall", {
+          hiddenField: fieldId,
+          questionIndex: recallQuestionIdx + 1,
+        })
+      );
+      return;
+    }
+
+    const quotaIdx = quotas.findIndex((quota) => isUsedInQuota(quota, { hiddenFieldId: fieldId }));
+
+    if (quotaIdx !== -1) {
+      toast.error(
+        t("environments.surveys.edit.fieldId_is_used_in_quota_please_remove_it_from_quota_first", {
+          fieldId,
+          quotaName: quotas[quotaIdx].name,
+        })
+      );
+      return;
+    }
 
     const isHiddenFieldUsedInFollowUp = localSurvey.followUps
       .filter((f) => !f.deleted)
@@ -113,7 +149,7 @@ export const HiddenFieldsCard = ({
       <div
         className={cn(
           open ? "bg-slate-50" : "bg-white group-hover:bg-slate-50",
-          "flex w-10 items-center justify-center rounded-l-lg border-t border-b border-l group-aria-expanded:rounded-bl-none"
+          "flex w-10 items-center justify-center rounded-l-lg border-b border-l border-t group-aria-expanded:rounded-bl-none"
         )}>
         <EyeOff className="h-4 w-4" />
       </div>
@@ -129,21 +165,6 @@ export const HiddenFieldsCard = ({
               <div>
                 <p className="text-sm font-semibold">{t("common.hidden_fields")}</p>
               </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="hidden-fields-toggle">
-                {localSurvey?.hiddenFields?.enabled ? t("common.on") : t("common.off")}
-              </Label>
-
-              <Switch
-                id="hidden-fields-toggle"
-                checked={localSurvey?.hiddenFields?.enabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateSurvey({ enabled: !localSurvey.hiddenFields?.enabled });
-                }}
-              />
             </div>
           </div>
         </Collapsible.CollapsibleTrigger>
@@ -161,7 +182,7 @@ export const HiddenFieldsCard = ({
                 );
               })
             ) : (
-              <p className="mt-2 text-sm text-slate-500 italic">
+              <p className="mt-2 text-sm italic text-slate-500">
                 {t("environments.surveys.edit.no_hidden_fields_yet_add_first_one_below")}
               </p>
             )}
@@ -203,7 +224,7 @@ export const HiddenFieldsCard = ({
                 onChange={(e) => setHiddenField(e.target.value.trim())}
                 placeholder={t("environments.surveys.edit.type_field_id") + "..."}
               />
-              <Button variant="secondary" type="submit" size="sm" className="whitespace-nowrap">
+              <Button variant="secondary" type="submit" className="h-10 whitespace-nowrap">
                 {t("environments.surveys.edit.add_hidden_field_id")}
               </Button>
             </div>

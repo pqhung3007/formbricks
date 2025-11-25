@@ -1,4 +1,5 @@
 // utils.test.ts
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { mockProjectId, mockSurveyId } from "@/lib/common/tests/__mocks__/config.mock";
 import {
   checkUrlMatch,
@@ -8,7 +9,9 @@ import {
   getDefaultLanguageCode,
   getIsDebug,
   getLanguageCode,
+  getSecureRandom,
   getStyling,
+  handleHiddenFields,
   handleUrlFilters,
   isNowExpired,
   shouldDisplayBasedOnPercentage,
@@ -23,8 +26,7 @@ import type {
   TSurveyStyling,
   TUserState,
 } from "@/types/config";
-import { type TActionClassPageUrlRule } from "@/types/survey";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { type TActionClassNoCodeConfig, type TActionClassPageUrlRule } from "@/types/survey";
 
 const mockSurveyId1 = "e3kxlpnzmdp84op9qzxl9olj";
 const mockSurveyId2 = "qo9rwjmms42hoy3k85fp8vgu";
@@ -61,7 +63,49 @@ describe("utils.ts", () => {
     test("returns ok on success", () => {
       const fn = vi.fn(() => "success");
       const wrapped = wrapThrows(fn);
-      expect(wrapped()).toEqual({ ok: true, data: "success" });
+      const result = wrapped();
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toBe("success");
+      }
+    });
+
+    test("returns err on error", () => {
+      const fn = vi.fn(() => {
+        throw new Error("Something broke");
+      });
+      const wrapped = wrapThrows(fn);
+      const result = wrapped();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe("Something broke");
+      }
+    });
+
+    test("passes arguments to wrapped function", () => {
+      const fn = vi.fn((a: number, b: number) => a + b);
+      const wrapped = wrapThrows(fn);
+      const result = wrapped(2, 3);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toBe(5);
+      }
+      expect(fn).toHaveBeenCalledWith(2, 3);
+    });
+
+    test("handles async function", () => {
+      const fn = vi.fn(async () => {
+        await new Promise((r) => {
+          setTimeout(r, 10);
+        });
+        return "async success";
+      });
+      const wrapped = wrapThrows(fn);
+      const result = wrapped();
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toBeInstanceOf(Promise);
+      }
     });
   });
 
@@ -399,16 +443,27 @@ describe("utils.ts", () => {
   // ---------------------------------------------------------------------------------
   describe("shouldDisplayBasedOnPercentage()", () => {
     test("returns true if random number <= displayPercentage", () => {
-      // We'll mock Math.random to return something
-      const mockedRandom = vi.spyOn(Math, "random").mockReturnValue(0.2); // 0.2 => 20%
-      // displayPercentage = 30 => 30% => we should display
+      const mockGetRandomValues = vi
+        .spyOn(crypto, "getRandomValues")
+        .mockImplementation(<T extends ArrayBufferView | null>(array: T): T => {
+          if (array instanceof Uint32Array) {
+            array[0] = Math.floor((20 / 100) * 2 ** 32);
+            return array;
+          }
+          return array;
+        });
       expect(shouldDisplayBasedOnPercentage(30)).toBe(true);
 
-      mockedRandom.mockReturnValue(0.5); // 50%
+      mockGetRandomValues.mockImplementation(<T extends ArrayBufferView | null>(array: T): T => {
+        if (array instanceof Uint32Array) {
+          array[0] = Math.floor((80 / 100) * 2 ** 32);
+          return array;
+        }
+        return array;
+      });
       expect(shouldDisplayBasedOnPercentage(30)).toBe(false);
 
-      // restore
-      mockedRandom.mockRestore();
+      mockGetRandomValues.mockRestore();
     });
   });
 
@@ -550,6 +605,211 @@ describe("utils.ts", () => {
       const result = handleUrlFilters(urlFilters);
       expect(result).toBe(true);
     });
+
+    test("returns true if urlFilters is empty", () => {
+      const urlFilters: TActionClassNoCodeConfig["urlFilters"] = [];
+
+      const result = handleUrlFilters(urlFilters);
+      expect(result).toBe(true);
+    });
+
+    test("returns false if no urlFilters match", () => {
+      const urlFilters = [
+        {
+          value: "https://example.com/other",
+          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters);
+      expect(result).toBe(false);
+    });
+
+    test("returns true if any urlFilter matches", () => {
+      const urlFilters = [
+        {
+          value: "https://example.com/other",
+          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "path",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters);
+      expect(result).toBe(true);
+    });
+
+    test("returns true with OR connector when any urlFilter matches", () => {
+      const urlFilters = [
+        {
+          value: "https://example.com/other",
+          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "path",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "or");
+      expect(result).toBe(true);
+    });
+
+    test("returns false with OR connector when no urlFilter matches", () => {
+      const urlFilters = [
+        {
+          value: "https://example.com/other",
+          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "different",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "or");
+      expect(result).toBe(false);
+    });
+
+    test("returns true with AND connector when all urlFilters match", () => {
+      const urlFilters = [
+        {
+          value: "example.com",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "path",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "and");
+      expect(result).toBe(true);
+    });
+
+    test("returns false with AND connector when not all urlFilters match", () => {
+      const urlFilters = [
+        {
+          value: "example.com",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "different",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "and");
+      expect(result).toBe(false);
+    });
+
+    test("returns true with AND connector when single filter matches", () => {
+      const urlFilters = [
+        {
+          value: "example.com",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "and");
+      expect(result).toBe(true);
+    });
+
+    test("returns false with AND connector when single filter does not match", () => {
+      const urlFilters = [
+        {
+          value: "different.com",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const result = handleUrlFilters(urlFilters, "and");
+      expect(result).toBe(false);
+    });
+
+    test("defaults to OR connector when connector is not specified", () => {
+      const urlFilters = [
+        {
+          value: "https://example.com/other",
+          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+        },
+        {
+          value: "path",
+          rule: "contains" as unknown as TActionClassPageUrlRule,
+        },
+      ];
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const resultWithoutConnector = handleUrlFilters(urlFilters);
+      const resultWithOr = handleUrlFilters(urlFilters, "or");
+
+      expect(resultWithoutConnector).toBe(resultWithOr);
+      expect(resultWithoutConnector).toBe(true);
+    });
   });
 
   // ---------------------------------------------------------------------------------
@@ -560,12 +820,12 @@ describe("utils.ts", () => {
       const targetElement = document.createElement("div");
 
       const action: TEnvironmentStateActionClass = {
-        id: "clabc123abc", // some valid cuid2 or placeholder
+        id: "clabc123abc",
         name: "Test Action",
-        type: "noCode", // or "code", but here we have noCode
+        type: "noCode",
         key: null,
         noCodeConfig: {
-          type: "pageView", // the mismatch
+          type: "pageView",
           urlFilters: [],
         },
       };
@@ -579,7 +839,7 @@ describe("utils.ts", () => {
       targetElement.innerHTML = "Test";
 
       const action: TEnvironmentStateActionClass = {
-        id: "clabc123abc", // some valid cuid2 or placeholder
+        id: "clabc123abc",
         name: "Test Action",
         type: "noCode",
         key: null,
@@ -604,7 +864,7 @@ describe("utils.ts", () => {
       targetElement.matches = vi.fn(() => true);
 
       const action: TEnvironmentStateActionClass = {
-        id: "clabc123abc", // some valid cuid2 or placeholder
+        id: "clabc123abc",
         name: "Test Action",
         type: "noCode",
         key: null,
@@ -629,14 +889,35 @@ describe("utils.ts", () => {
       targetElement.matches = vi.fn(() => false);
 
       const action: TEnvironmentStateActionClass = {
-        id: "clabc123abc", // some valid cuid2 or placeholder
+        id: "clabc123abc",
         name: "Test Action",
         type: "noCode",
         key: null,
         noCodeConfig: {
           type: "click",
           urlFilters: [],
-          elementSelector: { cssSelector },
+          elementSelector: {
+            cssSelector,
+          },
+        },
+      };
+
+      const result = evaluateNoCodeConfigClick(targetElement, action);
+      expect(result).toBe(false);
+    });
+
+    test("returns false if neither innerHtml nor cssSelector is provided", () => {
+      const targetElement = document.createElement("div");
+
+      const action: TEnvironmentStateActionClass = {
+        id: "clabc123abc",
+        name: "Test Action",
+        type: "noCode",
+        key: null,
+        noCodeConfig: {
+          type: "click",
+          urlFilters: [],
+          elementSelector: {},
         },
       };
 
@@ -646,27 +927,96 @@ describe("utils.ts", () => {
 
     test("returns false if urlFilters do not match", () => {
       const targetElement = document.createElement("div");
-      const urlFilters = [
-        {
-          value: "https://example.com/path",
-          rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+      targetElement.innerHTML = "Test";
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
         },
-      ];
+      });
 
       const action: TEnvironmentStateActionClass = {
-        id: "clabc123abc", // some valid cuid2 or placeholder
+        id: "clabc123abc",
         name: "Test Action",
         type: "noCode",
         key: null,
         noCodeConfig: {
           type: "click",
-          urlFilters,
-          elementSelector: {},
+          urlFilters: [
+            {
+              value: "https://example.com/other",
+              rule: "exactMatch" as unknown as TActionClassPageUrlRule,
+            },
+          ],
+          elementSelector: {
+            innerHtml: "Test",
+          },
         },
       };
 
       const result = evaluateNoCodeConfigClick(targetElement, action);
       expect(result).toBe(false);
+    });
+
+    test("returns true if both innerHtml and urlFilters match", () => {
+      const targetElement = document.createElement("div");
+      targetElement.innerHTML = "Test";
+
+      // mock window.location.href
+      vi.stubGlobal("window", {
+        location: {
+          href: "https://example.com/path",
+        },
+      });
+
+      const action: TEnvironmentStateActionClass = {
+        id: "clabc123abc",
+        name: "Test Action",
+        type: "noCode",
+        key: null,
+        noCodeConfig: {
+          type: "click",
+          urlFilters: [
+            {
+              value: "path",
+              rule: "contains" as unknown as TActionClassPageUrlRule,
+            },
+          ],
+          elementSelector: {
+            innerHtml: "Test",
+          },
+        },
+      };
+
+      const result = evaluateNoCodeConfigClick(targetElement, action);
+      expect(result).toBe(true);
+    });
+
+    test("handles multiple cssSelectors correctly", () => {
+      const targetElement = document.createElement("div");
+      targetElement.className = "test other";
+
+      targetElement.matches = vi.fn((selector) => {
+        return selector === ".test" || selector === ".other";
+      });
+
+      const action: TEnvironmentStateActionClass = {
+        id: "clabc123abc",
+        name: "Test Action",
+        type: "noCode",
+        key: null,
+        noCodeConfig: {
+          type: "click",
+          urlFilters: [],
+          elementSelector: {
+            cssSelector: ".test .other",
+          },
+        },
+      };
+
+      const result = evaluateNoCodeConfigClick(targetElement, action);
+      expect(result).toBe(true);
     });
   });
 
@@ -674,16 +1024,143 @@ describe("utils.ts", () => {
   // getIsDebug
   // ---------------------------------------------------------------------------------
   describe("getIsDebug()", () => {
-    test("returns true if debug param is set", () => {
-      // mock window.location.search
-      vi.stubGlobal("window", {
-        location: {
-          search: "?formbricksDebug=true",
-        },
+    beforeEach(() => {
+      // Reset window.location.search before each test
+      Object.defineProperty(window, "location", {
+        value: { search: "" },
+        writable: true,
       });
+    });
 
-      const result = getIsDebug();
-      expect(result).toBe(true);
+    test("returns true if debug parameter is set", () => {
+      Object.defineProperty(window, "location", {
+        value: { search: "?formbricksDebug=true" },
+        writable: true,
+      });
+      expect(getIsDebug()).toBe(true);
+    });
+
+    test("returns false if debug parameter is not set", () => {
+      Object.defineProperty(window, "location", {
+        value: { search: "?otherParam=value" },
+        writable: true,
+      });
+      expect(getIsDebug()).toBe(false);
+    });
+
+    test("returns false if search string is empty", () => {
+      Object.defineProperty(window, "location", {
+        value: { search: "" },
+        writable: true,
+      });
+      expect(getIsDebug()).toBe(false);
+    });
+
+    test("returns false if search string is just '?'", () => {
+      Object.defineProperty(window, "location", {
+        value: { search: "?" },
+        writable: true,
+      });
+      expect(getIsDebug()).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------------
+  // handleHiddenFields
+  // ---------------------------------------------------------------------------------
+  describe("handleHiddenFields()", () => {
+    test("returns empty object when hidden fields are not enabled", () => {
+      const hiddenFieldsConfig = {
+        enabled: false,
+        fieldIds: ["field1", "field2"],
+      };
+      const hiddenFields = {
+        field1: "value1",
+        field2: "value2",
+      };
+
+      const result = handleHiddenFields(hiddenFieldsConfig, hiddenFields);
+      expect(result).toEqual({});
+    });
+
+    test("returns empty object when no hidden fields are provided", () => {
+      const hiddenFieldsConfig = {
+        enabled: true,
+        fieldIds: ["field1", "field2"],
+      };
+
+      const result = handleHiddenFields(hiddenFieldsConfig);
+      expect(result).toEqual({});
+    });
+
+    test("filters and returns only valid hidden fields", () => {
+      const hiddenFieldsConfig = {
+        enabled: true,
+        fieldIds: ["field1", "field2"],
+      };
+      const hiddenFields = {
+        field1: "value1",
+        field2: "value2",
+        field3: "value3", // This should be filtered out
+      };
+
+      const result = handleHiddenFields(hiddenFieldsConfig, hiddenFields);
+      expect(result).toEqual({
+        field1: "value1",
+        field2: "value2",
+      });
+    });
+
+    test("handles empty fieldIds array", () => {
+      const hiddenFieldsConfig = {
+        enabled: true,
+        fieldIds: [],
+      };
+      const hiddenFields = {
+        field1: "value1",
+        field2: "value2",
+      };
+
+      const result = handleHiddenFields(hiddenFieldsConfig, hiddenFields);
+      expect(result).toEqual({});
+    });
+
+    test("handles null fieldIds", () => {
+      const hiddenFieldsConfig = {
+        enabled: true,
+        fieldIds: undefined,
+      };
+      const hiddenFields = {
+        field1: "value1",
+        field2: "value2",
+      };
+
+      const result = handleHiddenFields(hiddenFieldsConfig, hiddenFields);
+      expect(result).toEqual({});
+    });
+  });
+
+  // ---------------------------------------------------------------------------------
+  // getSecureRandom
+  // ---------------------------------------------------------------------------------
+  describe("getSecureRandom()", () => {
+    test("returns a number between 0 and 1", () => {
+      const result = getSecureRandom();
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThan(1);
+    });
+
+    test("returns different values on subsequent calls", () => {
+      const result1 = getSecureRandom();
+      const result2 = getSecureRandom();
+      expect(result1).not.toBe(result2);
+    });
+
+    test("uses crypto.getRandomValues", () => {
+      const mockGetRandomValues = vi.spyOn(crypto, "getRandomValues");
+      getSecureRandom();
+      expect(mockGetRandomValues).toHaveBeenCalled();
+      mockGetRandomValues.mockRestore();
     });
   });
 });

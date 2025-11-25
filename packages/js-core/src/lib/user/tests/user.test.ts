@@ -1,9 +1,9 @@
+import { type Mock, type MockInstance, beforeEach, describe, expect, test, vi } from "vitest";
 import { Config } from "@/lib/common/config";
 import { Logger } from "@/lib/common/logger";
 import { setup, tearDown } from "@/lib/common/setup";
 import { UpdateQueue } from "@/lib/user/update-queue";
 import { logout, setUserId } from "@/lib/user/user";
-import { type Mock, type MockInstance, beforeEach, describe, expect, test, vi } from "vitest";
 
 // Mock dependencies
 vi.mock("@/lib/common/config", () => ({
@@ -116,7 +116,7 @@ describe("user.ts", () => {
   });
 
   describe("logout", () => {
-    test("successfully sets up formbricks after logout", async () => {
+    test("successfully sets up formbricks after logout", () => {
       const mockConfig = {
         get: vi.fn().mockReturnValue({
           environmentId: mockEnvironmentId,
@@ -129,40 +129,24 @@ describe("user.ts", () => {
 
       (setup as Mock).mockResolvedValue(undefined);
 
-      const result = await logout();
+      const result = logout();
 
       expect(tearDown).toHaveBeenCalled();
-      expect(setup).toHaveBeenCalledWith({
-        environmentId: mockEnvironmentId,
-        appUrl: mockAppUrl,
-      });
       expect(result.ok).toBe(true);
     });
 
-    test("returns error if setup fails", async () => {
+    test("returns error if appConfig.get fails", () => {
       const mockConfig = {
-        get: vi.fn().mockReturnValue({
-          environmentId: mockEnvironmentId,
-          appUrl: mockAppUrl,
-          user: { data: { userId: mockUserId } },
-        }),
+        get: vi.fn().mockReturnValue(null),
       };
 
       getInstanceConfigMock.mockReturnValue(mockConfig as unknown as Config);
 
-      const mockError = { code: "network_error", message: "Failed to connect" };
-      (setup as Mock).mockRejectedValue(mockError);
+      const result = logout();
 
-      const result = await logout();
-
-      expect(tearDown).toHaveBeenCalled();
-      expect(setup).toHaveBeenCalledWith({
-        environmentId: mockEnvironmentId,
-        appUrl: mockAppUrl,
-      });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toEqual(mockError);
+        expect(result.error).toEqual(new Error("Failed to logout"));
       }
     });
   });

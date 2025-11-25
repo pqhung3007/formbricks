@@ -1,18 +1,18 @@
 import { SettingsCard } from "@/app/(app)/environments/[environmentId]/settings/components/SettingsCard";
 import { getTagsByEnvironmentId } from "@/lib/tag/service";
 import { getTagsOnResponsesCount } from "@/lib/tagOnResponse/service";
+import { getTranslate } from "@/lingodotdev/server";
 import { getEnvironmentAuth } from "@/modules/environments/lib/utils";
 import { ProjectConfigNavigation } from "@/modules/projects/settings/components/project-config-navigation";
 import { PageContentWrapper } from "@/modules/ui/components/page-content-wrapper";
 import { PageHeader } from "@/modules/ui/components/page-header";
-import { getTranslate } from "@/tolgee/server";
 import { EditTagsWrapper } from "./components/edit-tags-wrapper";
 
 export const TagsPage = async (props) => {
   const params = await props.params;
   const t = await getTranslate();
 
-  const { isReadOnly, environment } = await getEnvironmentAuth(params.environmentId);
+  const { isReadOnly } = await getEnvironmentAuth(params.environmentId);
 
   const [tags, environmentTagsCount] = await Promise.all([
     getTagsByEnvironmentId(params.environmentId),
@@ -28,7 +28,6 @@ export const TagsPage = async (props) => {
         title={t("environments.project.tags.manage_tags")}
         description={t("environments.project.tags.manage_tags_description")}>
         <EditTagsWrapper
-          environment={environment}
           environmentTags={tags}
           environmentTagsCount={environmentTagsCount}
           isReadOnly={isReadOnly}

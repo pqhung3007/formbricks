@@ -1,11 +1,9 @@
 import "server-only";
-import { teamCache } from "@/lib/cache/team";
-import { getAccessFlags } from "@/lib/membership/utils";
-import { projectCache } from "@/lib/project/cache";
-import { CreateMembershipInvite } from "@/modules/auth/invite/types/invites";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@formbricks/database";
 import { DatabaseError } from "@formbricks/types/errors";
+import { getAccessFlags } from "@/lib/membership/utils";
+import { CreateMembershipInvite } from "@/modules/auth/invite/types/invites";
 
 export const createTeamMembership = async (invite: CreateMembershipInvite, userId: string): Promise<void> => {
   const teamIds = invite.teamIds || [];
@@ -44,17 +42,6 @@ export const createTeamMembership = async (invite: CreateMembershipInvite, userI
         validProjectIds.push(...team.projectTeams.map((pt) => pt.projectId));
       }
     }
-
-    for (const projectId of validProjectIds) {
-      teamCache.revalidate({ id: projectId });
-    }
-
-    for (const teamId of validTeamIds) {
-      teamCache.revalidate({ id: teamId });
-    }
-
-    teamCache.revalidate({ userId, organizationId: invite.organizationId });
-    projectCache.revalidate({ userId, organizationId: invite.organizationId });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       throw new DatabaseError(error.message);

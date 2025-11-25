@@ -1,3 +1,7 @@
+import { useMemo, useRef, useState } from "preact/hooks";
+import { useCallback } from "react";
+import { type TResponseData, type TResponseTtc } from "@formbricks/types/responses";
+import type { TSurveyAddressQuestion, TSurveyQuestionId } from "@formbricks/types/surveys/types";
 import { BackButton } from "@/components/buttons/back-button";
 import { SubmitButton } from "@/components/buttons/submit-button";
 import { Headline } from "@/components/general/headline";
@@ -8,10 +12,6 @@ import { Subheader } from "@/components/general/subheader";
 import { ScrollableContainer } from "@/components/wrappers/scrollable-container";
 import { getLocalizedValue } from "@/lib/i18n";
 import { getUpdatedTtc, useTtc } from "@/lib/ttc";
-import { useMemo, useRef, useState } from "preact/hooks";
-import { useCallback } from "react";
-import { type TResponseData, type TResponseTtc } from "@formbricks/types/responses";
-import type { TSurveyAddressQuestion, TSurveyQuestionId } from "@formbricks/types/surveys/types";
 
 interface AddressQuestionProps {
   question: TSurveyAddressQuestion;
@@ -27,6 +27,8 @@ interface AddressQuestionProps {
   currentQuestionId: TSurveyQuestionId;
   autoFocusEnabled: boolean;
   isBackButtonHidden: boolean;
+  dir?: "ltr" | "rtl" | "auto";
+  fullSizeCards: boolean;
 }
 
 export function AddressQuestion({
@@ -43,7 +45,9 @@ export function AddressQuestion({
   currentQuestionId,
   autoFocusEnabled,
   isBackButtonHidden,
-}: AddressQuestionProps) {
+  dir = "auto",
+  fullSizeCards,
+}: Readonly<AddressQuestionProps>) {
   const [startTime, setStartTime] = useState(performance.now());
   const isMediaAvailable = question.imageUrl || question.videoUrl;
   const formRef = useRef<HTMLFormElement>(null);
@@ -120,8 +124,8 @@ export function AddressQuestion({
   );
 
   return (
-    <form key={question.id} onSubmit={handleSubmit} className="fb-w-full" ref={formRef}>
-      <ScrollableContainer>
+    <ScrollableContainer fullSizeCards={fullSizeCards}>
+      <form key={question.id} onSubmit={handleSubmit} className="fb-w-full" ref={formRef}>
         <div>
           {isMediaAvailable ? (
             <QuestionMedia imgUrl={question.imageUrl} videoUrl={question.videoUrl} />
@@ -157,8 +161,9 @@ export function AddressQuestion({
               return (
                 field.show && (
                   <div className="fb-space-y-1">
-                    <Label text={isFieldRequired() ? `${field.label}*` : field.label} />
+                    <Label htmlForId={field.id} text={isFieldRequired() ? `${field.label}*` : field.label} />
                     <Input
+                      id={field.id}
                       key={field.id}
                       required={isFieldRequired()}
                       value={safeValue[index] || ""}
@@ -169,33 +174,34 @@ export function AddressQuestion({
                       ref={index === 0 ? addressRef : null}
                       tabIndex={isCurrent ? 0 : -1}
                       aria-label={field.label}
+                      dir={!safeValue[index] ? dir : "auto"}
                     />
                   </div>
                 )
               );
             })}
           </div>
+          <div className="fb-flex fb-flex-row-reverse fb-w-full fb-justify-between fb-pt-4">
+            <SubmitButton
+              tabIndex={isCurrent ? 0 : -1}
+              buttonLabel={getLocalizedValue(question.buttonLabel, languageCode)}
+              isLastQuestion={isLastQuestion}
+            />
+            <div />
+            {!isFirstQuestion && !isBackButtonHidden && (
+              <BackButton
+                tabIndex={isCurrent ? 0 : -1}
+                backButtonLabel={getLocalizedValue(question.backButtonLabel, languageCode)}
+                onClick={() => {
+                  const updatedttc = getUpdatedTtc(ttc, question.id, performance.now() - startTime);
+                  setTtc(updatedttc);
+                  onBack();
+                }}
+              />
+            )}
+          </div>
         </div>
-      </ScrollableContainer>
-      <div className="fb-flex fb-flex-row-reverse fb-w-full fb-justify-between fb-px-6 fb-py-4">
-        <SubmitButton
-          tabIndex={isCurrent ? 0 : -1}
-          buttonLabel={getLocalizedValue(question.buttonLabel, languageCode)}
-          isLastQuestion={isLastQuestion}
-        />
-        <div />
-        {!isFirstQuestion && !isBackButtonHidden && (
-          <BackButton
-            tabIndex={isCurrent ? 0 : -1}
-            backButtonLabel={getLocalizedValue(question.backButtonLabel, languageCode)}
-            onClick={() => {
-              const updatedttc = getUpdatedTtc(ttc, question.id, performance.now() - startTime);
-              setTtc(updatedttc);
-              onBack();
-            }}
-          />
-        )}
-      </div>
-    </form>
+      </form>
+    </ScrollableContainer>
   );
 }

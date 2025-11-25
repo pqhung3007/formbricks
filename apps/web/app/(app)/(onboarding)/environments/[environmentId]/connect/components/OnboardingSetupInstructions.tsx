@@ -1,15 +1,15 @@
 "use client";
 
-import { Button } from "@/modules/ui/components/button";
-import { CodeBlock } from "@/modules/ui/components/code-block";
-import { Html5Icon, NpmIcon } from "@/modules/ui/components/icons";
-import { TabBar } from "@/modules/ui/components/tab-bar";
-import { useTranslate } from "@tolgee/react";
 import Link from "next/link";
 import "prismjs/themes/prism.css";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { TProjectConfigChannel } from "@formbricks/types/project";
+import { Button } from "@/modules/ui/components/button";
+import { CodeBlock } from "@/modules/ui/components/code-block";
+import { Html5Icon, NpmIcon } from "@/modules/ui/components/icons";
+import { TabBar } from "@/modules/ui/components/tab-bar";
 
 const tabs = [
   { id: "html", label: "HTML", icon: <Html5Icon /> },
@@ -18,23 +18,23 @@ const tabs = [
 
 interface OnboardingSetupInstructionsProps {
   environmentId: string;
-  webAppUrl: string;
+  publicDomain: string;
   channel: TProjectConfigChannel;
-  widgetSetupCompleted: boolean;
+  appSetupCompleted: boolean;
 }
 
 export const OnboardingSetupInstructions = ({
   environmentId,
-  webAppUrl,
+  publicDomain,
   channel,
-  widgetSetupCompleted,
+  appSetupCompleted,
 }: OnboardingSetupInstructionsProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   const htmlSnippetForAppSurveys = `<!-- START Formbricks Surveys -->
   <script type="text/javascript">
   !function(){
-      var appUrl = "${webAppUrl}";
+      var appUrl = "${publicDomain}";
       var environmentId = "${environmentId}";
       var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=appUrl+"/js/formbricks.umd.cjs",t.onload=function(){window.formbricks?window.formbricks.setup({environmentId:environmentId,appUrl:appUrl}):console.error("Formbricks library failed to load properly. The formbricks object is not available.");};var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}();
   </script>
@@ -44,7 +44,7 @@ export const OnboardingSetupInstructions = ({
   const htmlSnippetForWebsiteSurveys = `<!-- START Formbricks Surveys -->
   <script type="text/javascript">
   !function(){
-    var appUrl = "${webAppUrl}";
+    var appUrl = "${publicDomain}";
     var environmentId = "${environmentId}";
     var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src=appUrl+"/js/formbricks.umd.cjs",t.onload=function(){window.formbricks?window.formbricks.setup({environmentId:environmentId,appUrl:appUrl}):console.error("Formbricks library failed to load properly. The formbricks object is not available.");};var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}();
   </script>
@@ -57,7 +57,7 @@ export const OnboardingSetupInstructions = ({
   if (typeof window !== "undefined") {
     formbricks.setup({
       environmentId: "${environmentId}",
-      appUrl: "${webAppUrl}",
+      appUrl: "${publicDomain}",
     });
   }
   
@@ -75,7 +75,7 @@ export const OnboardingSetupInstructions = ({
   if (typeof window !== "undefined") {
     formbricks.setup({
       environmentId: "${environmentId}",
-      appUrl: "${webAppUrl}",
+      appUrl: "${publicDomain}",
     });
   }
   
@@ -137,7 +137,7 @@ export const OnboardingSetupInstructions = ({
             <div className="mt-4 flex justify-between space-x-2">
               <Button
                 id="onboarding-inapp-connect-copy-code"
-                variant={widgetSetupCompleted ? "secondary" : "default"}
+                variant={appSetupCompleted ? "secondary" : "default"}
                 onClick={() => {
                   navigator.clipboard.writeText(
                     channel === "app" ? htmlSnippetForAppSurveys : htmlSnippetForWebsiteSurveys

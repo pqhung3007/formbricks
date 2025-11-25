@@ -1,17 +1,16 @@
-import { segmentCache } from "@/lib/cache/segment";
-import { capturePosthogEnvironmentEvent } from "@/lib/posthogServer";
-import { surveyCache } from "@/lib/survey/cache";
-import { checkForInvalidImagesInQuestions } from "@/lib/survey/utils";
-import { subscribeOrganizationMembersToSurveyResponses } from "@/modules/survey/components/template-list/lib/organization";
-import { TriggerUpdate } from "@/modules/survey/editor/types/survey-trigger";
-import { getActionClasses } from "@/modules/survey/lib/action-class";
-import { getOrganizationAIKeys, getOrganizationIdFromEnvironmentId } from "@/modules/survey/lib/organization";
-import { selectSurvey } from "@/modules/survey/lib/survey";
 import { ActionClass, Prisma } from "@prisma/client";
 import { prisma } from "@formbricks/database";
 import { logger } from "@formbricks/logger";
 import { DatabaseError, InvalidInputError, ResourceNotFoundError } from "@formbricks/types/errors";
 import { TSurvey, TSurveyCreateInput } from "@formbricks/types/surveys/types";
+import {
+  getOrganizationByEnvironmentId,
+  subscribeOrganizationMembersToSurveyResponses,
+} from "@/lib/organization/service";
+import { checkForInvalidImagesInQuestions } from "@/lib/survey/utils";
+import { TriggerUpdate } from "@/modules/survey/editor/types/survey-trigger";
+import { getActionClasses } from "@/modules/survey/lib/action-class";
+import { selectSurvey } from "@/modules/survey/lib/survey";
 
 export const createSurvey = async (
   environmentId: string,
@@ -45,8 +44,7 @@ export const createSurvey = async (
       };
     }
 
-    const organizationId = await getOrganizationIdFromEnvironmentId(environmentId);
-    const organization = await getOrganizationAIKeys(organizationId);
+    const organization = await getOrganizationByEnvironmentId(environmentId);
     if (!organization) {
       throw new ResourceNotFoundError("Organization", null);
     }
@@ -105,11 +103,6 @@ export const createSurvey = async (
           },
         },
       });
-
-      segmentCache.revalidate({
-        id: newSegment.id,
-        environmentId: survey.environmentId,
-      });
     }
 
     // TODO: Fix this, this happens because the survey type "web" is no longer in the zod types but its required in the schema for migration
@@ -124,20 +117,9 @@ export const createSurvey = async (
       }),
     };
 
-    surveyCache.revalidate({
-      id: survey.id,
-      environmentId: survey.environmentId,
-      resultShareKey: survey.resultShareKey ?? undefined,
-    });
-
     if (createdBy) {
-      await subscribeOrganizationMembersToSurveyResponses(survey.id, createdBy);
+      await subscribeOrganizationMembersToSurveyResponses(survey.id, createdBy, organization.id);
     }
-
-    await capturePosthogEnvironmentEvent(survey.environmentId, "survey created", {
-      surveyId: survey.id,
-      surveyType: survey.type,
-    });
 
     return transformedSurvey;
   } catch (error) {
@@ -205,12 +187,6 @@ export const handleTriggerUpdates = (
       },
     };
   }
-
-  [...addedTriggers, ...deletedTriggers].forEach((trigger) => {
-    surveyCache.revalidate({
-      actionClassId: trigger.actionClass.id,
-    });
-  });
 
   return triggersUpdate;
 };

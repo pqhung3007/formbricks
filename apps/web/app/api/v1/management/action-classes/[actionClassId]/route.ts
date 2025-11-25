@@ -1,11 +1,13 @@
-import { authenticateRequest, handleErrorResponse } from "@/app/api/v1/auth";
-import { responses } from "@/app/lib/api/response";
-import { transformErrorToDetails } from "@/app/lib/api/validator";
-import { deleteActionClass, getActionClass, updateActionClass } from "@/lib/actionClass/service";
-import { hasPermission } from "@/modules/organization/settings/api-keys/lib/utils";
+import { NextRequest } from "next/server";
 import { logger } from "@formbricks/logger";
 import { TActionClass, ZActionClassInput } from "@formbricks/types/action-classes";
 import { TAuthenticationApiKey } from "@formbricks/types/auth";
+import { handleErrorResponse } from "@/app/api/v1/auth";
+import { responses } from "@/app/lib/api/response";
+import { transformErrorToDetails } from "@/app/lib/api/validator";
+import { TApiAuditLog, TApiKeyAuthentication, withV1ApiWrapper } from "@/app/lib/api/with-api-logging";
+import { deleteActionClass, getActionClass, updateActionClass } from "@/lib/actionClass/service";
+import { hasPermission } from "@/modules/organization/settings/api-keys/lib/utils";
 
 const fetchAndAuthorizeActionClass = async (
   authentication: TAuthenticationApiKey,
@@ -26,81 +28,134 @@ const fetchAndAuthorizeActionClass = async (
   return actionClass;
 };
 
-export const GET = async (
-  request: Request,
-  props: { params: Promise<{ actionClassId: string }> }
-): Promise<Response> => {
-  const params = await props.params;
-  try {
-    const authentication = await authenticateRequest(request);
-    if (!authentication) return responses.notAuthenticatedResponse();
-    const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "GET");
-    if (actionClass) {
-      return responses.successResponse(actionClass);
-    }
-    return responses.notFoundResponse("Action Class", params.actionClassId);
-  } catch (error) {
-    return handleErrorResponse(error);
-  }
-};
+export const GET = withV1ApiWrapper({
+  handler: async ({
+    props,
+    authentication,
+  }: {
+    props: { params: Promise<{ actionClassId: string }> };
+    authentication: NonNullable<TApiKeyAuthentication>;
+  }) => {
+    const params = await props.params;
 
-export const PUT = async (
-  request: Request,
-  props: { params: Promise<{ actionClassId: string }> }
-): Promise<Response> => {
-  const params = await props.params;
-  try {
-    const authentication = await authenticateRequest(request);
-    if (!authentication) return responses.notAuthenticatedResponse();
-    const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "PUT");
-    if (!actionClass) {
-      return responses.notFoundResponse("Action Class", params.actionClassId);
-    }
-
-    let actionClassUpdate;
     try {
-      actionClassUpdate = await request.json();
+      const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "GET");
+      if (actionClass) {
+        return {
+          response: responses.successResponse(actionClass),
+        };
+      }
+      return {
+        response: responses.notFoundResponse("Action Class", params.actionClassId),
+      };
     } catch (error) {
-      logger.error({ error, url: request.url }, "Error parsing JSON");
-      return responses.badRequestResponse("Malformed JSON input, please check your request body");
+      return {
+        response: handleErrorResponse(error),
+      };
     }
+  },
+});
 
-    const inputValidation = ZActionClassInput.safeParse(actionClassUpdate);
-    if (!inputValidation.success) {
-      return responses.badRequestResponse(
-        "Fields are missing or incorrectly formatted",
-        transformErrorToDetails(inputValidation.error)
+export const PUT = withV1ApiWrapper({
+  handler: async ({
+    req,
+    props,
+    auditLog,
+    authentication,
+  }: {
+    req: NextRequest;
+    props: { params: Promise<{ actionClassId: string }> };
+    auditLog: TApiAuditLog;
+    authentication: NonNullable<TApiKeyAuthentication>;
+  }) => {
+    const params = await props.params;
+
+    try {
+      const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "PUT");
+      if (!actionClass) {
+        return {
+          response: responses.notFoundResponse("Action Class", params.actionClassId),
+        };
+      }
+      auditLog.oldObject = actionClass;
+
+      let actionClassUpdate;
+      try {
+        actionClassUpdate = await req.json();
+      } catch (error) {
+        logger.error({ error, url: req.url }, "Error parsing JSON");
+        return {
+          response: responses.badRequestResponse("Malformed JSON input, please check your request body"),
+        };
+      }
+
+      const inputValidation = ZActionClassInput.safeParse(actionClassUpdate);
+      if (!inputValidation.success) {
+        return {
+          response: responses.badRequestResponse(
+            "Fields are missing or incorrectly formatted",
+            transformErrorToDetails(inputValidation.error)
+          ),
+        };
+      }
+      const updatedActionClass = await updateActionClass(
+        inputValidation.data.environmentId,
+        params.actionClassId,
+        inputValidation.data
       );
+      if (updatedActionClass) {
+        auditLog.newObject = updatedActionClass;
+        return {
+          response: responses.successResponse(updatedActionClass),
+        };
+      }
+      return {
+        response: responses.internalServerErrorResponse("Some error occurred while updating action"),
+      };
+    } catch (error) {
+      return {
+        response: handleErrorResponse(error),
+      };
     }
-    const updatedActionClass = await updateActionClass(
-      inputValidation.data.environmentId,
-      params.actionClassId,
-      inputValidation.data
-    );
-    if (updatedActionClass) {
-      return responses.successResponse(updatedActionClass);
-    }
-    return responses.internalServerErrorResponse("Some error ocured while updating action");
-  } catch (error) {
-    return handleErrorResponse(error);
-  }
-};
+  },
+  action: "updated",
+  targetType: "actionClass",
+});
 
-export const DELETE = async (
-  request: Request,
-  props: { params: Promise<{ actionClassId: string }> }
-): Promise<Response> => {
-  const params = await props.params;
-  try {
-    const authentication = await authenticateRequest(request);
-    if (!authentication) return responses.notAuthenticatedResponse();
-    const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "DELETE");
-    if (!actionClass) {
-      return responses.notFoundResponse("Action Class", params.actionClassId);
+export const DELETE = withV1ApiWrapper({
+  handler: async ({
+    props,
+    auditLog,
+    authentication,
+  }: {
+    props: { params: Promise<{ actionClassId: string }> };
+    auditLog: TApiAuditLog;
+    authentication: NonNullable<TApiKeyAuthentication>;
+  }) => {
+    const params = await props.params;
+
+    auditLog.targetId = params.actionClassId;
+
+    try {
+      const actionClass = await fetchAndAuthorizeActionClass(authentication, params.actionClassId, "DELETE");
+      if (!actionClass) {
+        return {
+          response: responses.notFoundResponse("Action Class", params.actionClassId),
+        };
+      }
+
+      auditLog.oldObject = actionClass;
+
+      const deletedActionClass = await deleteActionClass(params.actionClassId);
+      return {
+        response: responses.successResponse(deletedActionClass),
+      };
+    } catch (error) {
+      return {
+        response: handleErrorResponse(error),
+      };
     }
-    const deletedActionClass = await deleteActionClass(params.actionClassId);
-    return responses.successResponse(deletedActionClass);
-  } catch (error) {
-    return handleErrorResponse(error);
-  }
-};
+  },
+  action: "deleted",
+  targetType: "actionClass",
+});

@@ -1,12 +1,9 @@
-import { cache } from "@/lib/cache";
-import { organizationCache } from "@/lib/organization/cache";
-import { surveyCache } from "@/lib/survey/cache";
-import { transformPrismaSurvey } from "@/modules/survey/lib/utils";
 import { Organization, Prisma } from "@prisma/client";
 import { cache as reactCache } from "react";
 import { prisma } from "@formbricks/database";
 import { DatabaseError, ResourceNotFoundError } from "@formbricks/types/errors";
 import { TSurvey } from "@formbricks/types/surveys/types";
+import { transformPrismaSurvey } from "@/modules/survey/lib/utils";
 
 export const selectSurvey = {
   id: true,
@@ -26,8 +23,6 @@ export const selectSurvey = {
   recontactDays: true,
   displayLimit: true,
   autoClose: true,
-  runOnDate: true,
-  closeOnDate: true,
   delay: true,
   displayPercentage: true,
   autoComplete: true,
@@ -39,10 +34,10 @@ export const selectSurvey = {
   surveyClosedMessage: true,
   singleUse: true,
   pin: true,
-  resultShareKey: true,
   showLanguageSwitch: true,
   recaptcha: true,
   isBackButtonHidden: true,
+  metadata: true,
   languages: {
     select: {
       default: true,
@@ -50,11 +45,11 @@ export const selectSurvey = {
       language: {
         select: {
           id: true,
-          code: true,
-          alias: true,
           createdAt: true,
           updatedAt: true,
+          code: true,
           projectId: true,
+          alias: true,
         },
       },
     },
@@ -77,7 +72,15 @@ export const selectSurvey = {
     },
   },
   segment: {
-    include: {
+    select: {
+      id: true,
+      createdAt: true,
+      updatedAt: true,
+      environmentId: true,
+      title: true,
+      description: true,
+      isPrivate: true,
+      filters: true,
       surveys: {
         select: {
           id: true,
@@ -89,57 +92,49 @@ export const selectSurvey = {
 } satisfies Prisma.SurveySelect;
 
 export const getOrganizationBilling = reactCache(
-  async (organizationId: string): Promise<Organization["billing"] | null> =>
-    cache(
-      async () => {
-        try {
-          const organization = await prisma.organization.findFirst({
-            where: {
-              id: organizationId,
-            },
-            select: {
-              billing: true,
-            },
-          });
+  async (organizationId: string): Promise<Organization["billing"] | null> => {
+    try {
+      const organization = await prisma.organization.findFirst({
+        where: {
+          id: organizationId,
+        },
+        select: {
+          billing: true,
+        },
+      });
 
-          if (!organization) {
-            throw new ResourceNotFoundError("Organization", null);
-          }
-
-          return organization.billing;
-        } catch (error) {
-          if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            throw new DatabaseError(error.message);
-          }
-
-          throw error;
-        }
-      },
-      [`survey-lib-getOrganizationBilling-${organizationId}`],
-      {
-        tags: [organizationCache.tag.byId(organizationId)],
+      if (!organization) {
+        throw new ResourceNotFoundError("Organization", null);
       }
-    )()
+
+      return organization.billing;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        throw new DatabaseError(error.message);
+      }
+
+      throw error;
+    }
+  }
 );
 
-export const getSurvey = reactCache(
-  async (surveyId: string): Promise<TSurvey> =>
-    cache(
-      async () => {
-        const survey = await prisma.survey.findUnique({
-          where: { id: surveyId },
-          select: selectSurvey,
-        });
+export const getSurvey = reactCache(async (surveyId: string): Promise<TSurvey> => {
+  try {
+    const survey = await prisma.survey.findUnique({
+      where: { id: surveyId },
+      select: selectSurvey,
+    });
 
-        if (!survey) {
-          throw new ResourceNotFoundError("Survey", surveyId);
-        }
+    if (!survey) {
+      throw new ResourceNotFoundError("Survey", surveyId);
+    }
 
-        return transformPrismaSurvey<TSurvey>(survey);
-      },
-      [`survey-editor-getSurvey-${surveyId}`],
-      {
-        tags: [surveyCache.tag.byId(surveyId)],
-      }
-    )()
-);
+    return transformPrismaSurvey<TSurvey>(survey);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new DatabaseError(error.message);
+    }
+
+    throw error;
+  }
+});

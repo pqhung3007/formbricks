@@ -18,19 +18,20 @@ const nextConfig = {
   assetPrefix: process.env.ASSET_PREFIX_URL || undefined,
   output: "standalone",
   poweredByHeader: false,
+  productionBrowserSourceMaps: true,
   serverExternalPackages: ["@aws-sdk", "@opentelemetry/instrumentation", "pino", "pino-pretty"],
   outputFileTracingIncludes: {
-    "app/api/packages": ["../../packages/js-core/dist/*", "../../packages/surveys/dist/*"],
     "/api/auth/**/*": ["../../node_modules/jose/**/*"],
-  },
-  i18n: {
-    locales: ["en-US", "de-DE", "fr-FR", "pt-BR", "zh-Hant-TW", "pt-PT"],
-    localeDetection: false,
-    defaultLocale: "en-US",
   },
   experimental: {},
   transpilePackages: ["@formbricks/database"],
   images: {
+    // Optimize image processing to reduce CPU time and prevent timeouts
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920], // Removed 3840 to avoid processing huge images
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Standard sizes for smaller images
+    formats: ["image/webp"], // WebP is faster to process and smaller than JPEG/PNG
+    minimumCacheTTL: 60, // Cache optimized images for at least 60 seconds
+    dangerouslyAllowSVG: true, // Allow SVG images
     remotePatterns: [
       {
         protocol: "https",
@@ -116,13 +117,17 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    const isProduction = process.env.NODE_ENV === "production";
+    const scriptSrcUnsafeEval = isProduction ? "" : " 'unsafe-eval'";
+
     return [
       {
-        source: "/(.*)",
+        // Apply X-Frame-Options to all routes except those starting with /s/ or /c/
+        source: "/((?!s/|c/).*)",
         headers: [
           {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
           },
         ],
       },
@@ -155,24 +160,6 @@ const nextConfig = {
         ],
       },
       {
-        source: "/environments/(.*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "SAMEORIGIN",
-          },
-        ],
-      },
-      {
-        source: "/auth/(.*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "SAMEORIGIN",
-          },
-        ],
-      },
-      {
         source: "/(.*)",
         headers: [
           {
@@ -181,8 +168,19 @@ const nextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.intercom.io https://*.intercomcdn.com https:; style-src 'self' 'unsafe-inline' https://*.intercomcdn.com https:; img-src 'self' blob: data: https://*.intercom.io https://*.intercomcdn.com data: https:; font-src 'self' data: https://*.intercomcdn.com https:; connect-src 'self' https://*.intercom.io wss://*.intercom.io https://*.intercomcdn.com https:; frame-src 'self' https://*.intercom.io https://app.cal.com https:; media-src 'self' https:; object-src 'self' data: https:; base-uri 'self'; form-action 'self'",
+            value: `default-src 'self'; script-src 'self' 'unsafe-inline'${scriptSrcUnsafeEval} https://*.intercom.io https://*.intercomcdn.com https:; style-src 'self' 'unsafe-inline' https://*.intercomcdn.com https:; img-src 'self' blob: data: http://localhost:9000 https://*.intercom.io https://*.intercomcdn.com https:; font-src 'self' data: https://*.intercomcdn.com https:; connect-src 'self' http://localhost:9000 https://*.intercom.io wss://*.intercom.io https://*.intercomcdn.com https:; frame-src 'self' https://*.intercom.io https://app.cal.com https:; media-src 'self' https:; object-src 'self' data: https:; base-uri 'self'; form-action 'self'`,
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
           },
         ],
       },
@@ -191,7 +189,8 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=3600, s-maxage=604800, stale-while-revalidate=3600, stale-if-error=3600",
+            value:
+              "public, max-age=3600, s-maxage=2592000, stale-while-revalidate=3600, stale-if-error=86400",
           },
           {
             key: "Content-Type",
@@ -201,20 +200,151 @@ const nextConfig = {
             key: "Access-Control-Allow-Origin",
             value: "*",
           },
+          {
+            key: "Vary",
+            value: "Accept-Encoding",
+          },
         ],
       },
-
-      // headers for /api/packages/(.*) -- the api route does not exist, but we still need the headers for the rewrites to work correctly!
+      // Favicon files - long cache since they rarely change
       {
-        source: "/api/packages/(.*)",
+        source: "/favicon/(.*)",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=3600, s-maxage=604800, stale-while-revalidate=3600, stale-if-error=3600",
+            value: "public, max-age=2592000, s-maxage=31536000, immutable",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // Root favicon.ico - long cache
+      {
+        source: "/favicon.ico",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=2592000, s-maxage=31536000, immutable",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // SVG files (icons, logos) - long cache since they're usually static
+      {
+        source: "/(.*)\\.svg",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=2592000, s-maxage=31536000, immutable",
           },
           {
             key: "Content-Type",
-            value: "application/javascript; charset=UTF-8",
+            value: "image/svg+xml",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // Image backgrounds - medium cache (might update more frequently)
+      {
+        source: "/image-backgrounds/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Vary",
+            value: "Accept-Encoding",
+          },
+        ],
+      },
+      // Video files - long cache since they're large and expensive to transfer
+      {
+        source: "/video/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, s-maxage=31536000, stale-while-revalidate=604800",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Accept-Ranges",
+            value: "bytes",
+          },
+        ],
+      },
+      // Animated backgrounds (4K videos) - very long cache since they're large and immutable
+      {
+        source: "/animated-bgs/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, s-maxage=31536000, immutable",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Accept-Ranges",
+            value: "bytes",
+          },
+        ],
+      },
+      // CSV templates - shorter cache since they might update with feature changes
+      {
+        source: "/sample-csv/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600",
+          },
+          {
+            key: "Content-Type",
+            value: "text/csv",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // Web manifest and browser config files - medium cache
+      {
+        source: "/(site\\.webmanifest|browserconfig\\.xml)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // Optimize caching for other static assets in public folder (fallback)
+      {
+        source: "/(images|fonts|icons)/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, s-maxage=31536000, immutable",
           },
           {
             key: "Access-Control-Allow-Origin",
@@ -281,11 +411,6 @@ const nextConfig = {
   },
 };
 
-// set custom cache handler
-if (process.env.CUSTOM_CACHE_DISABLED !== "1") {
-  nextConfig.cacheHandler = require.resolve("./cache-handler.mjs");
-}
-
 // set actions allowed origins
 if (process.env.WEBAPP_URL) {
   nextConfig.experimental.serverActions = {
@@ -301,22 +426,23 @@ nextConfig.images.remotePatterns.push({
 });
 
 const sentryOptions = {
-// For all available options, see:
-// https://www.npmjs.com/package/@sentry/webpack-plugin#options
+  // For all available options, see:
+  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
+  project: "formbricks-cloud",
+  org: "formbricks",
 
-org: "formbricks",
-project: "formbricks-cloud",
+  // Enable logging to debug sourcemap generation issues
+  silent: false,
 
-// Only print logs for uploading source maps in CI
-silent: true,
+  // Upload a larger set of source maps for prettier stack traces (increases build time)
+  widenClientFileUpload: true,
 
-// Upload a larger set of source maps for prettier stack traces (increases build time)
-widenClientFileUpload: true,
-
-// Automatically tree-shake Sentry logger statements to reduce bundle size
-disableLogger: true,
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: false,
 };
 
-const exportConfig = (process.env.SENTRY_DSN && process.env.NODE_ENV === "production") ? withSentryConfig(nextConfig, sentryOptions) : nextConfig;
+// Always enable Sentry plugin to inject Debug IDs
+// Runtime Sentry reporting still depends on DSN being set via environment variables
+const exportConfig = process.env.SENTRY_AUTH_TOKEN ? withSentryConfig(nextConfig, sentryOptions) : nextConfig;
 
 export default exportConfig;

@@ -1,5 +1,5 @@
-import { TooltipRenderer } from "@/modules/ui/components/tooltip";
 import { LucideIcon } from "lucide-react";
+import { TooltipRenderer } from "@/modules/ui/components/tooltip";
 import { Button } from "../button";
 
 interface IconAction {
@@ -19,7 +19,7 @@ export const IconBar = ({ actions }: IconBarProps) => {
 
   return (
     <div
-      className="flex items-center justify-center divide-x rounded-lg border border-slate-300 bg-white"
+      className="flex items-center justify-center divide-x rounded-md border border-slate-300 bg-white"
       role="toolbar"
       aria-label="Action buttons">
       {actions

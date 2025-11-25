@@ -1,14 +1,4 @@
-import {
-  DateRange,
-  FilterValue,
-  SelectedFilterValue,
-} from "@/app/(app)/environments/[environmentId]/components/ResponseFilterContext";
-import {
-  OptionsType,
-  QuestionOption,
-  QuestionOptions,
-} from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/QuestionsComboBox";
-import { QuestionFilterOptions } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/ResponseFilter";
+import { TSurveyQuota } from "@formbricks/types/quota";
 import {
   TResponseFilterCriteria,
   TResponseHiddenFieldsFilter,
@@ -16,7 +6,21 @@ import {
   TSurveyMetaFieldFilter,
 } from "@formbricks/types/responses";
 import { TSurvey, TSurveyQuestionTypeEnum } from "@formbricks/types/surveys/types";
+import { getTextContent } from "@formbricks/types/surveys/validation";
 import { TTag } from "@formbricks/types/tags";
+import {
+  DateRange,
+  FilterValue,
+  SelectedFilterValue,
+} from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/components/response-filter-context";
+import {
+  OptionsType,
+  QuestionOption,
+  QuestionOptions,
+} from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/QuestionsComboBox";
+import { QuestionFilterOptions } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/components/ResponseFilter";
+import { getLocalizedValue } from "@/lib/i18n/utils";
+import { recallToHeadline } from "@/lib/utils/recall";
 
 const conditionOptions = {
   openText: ["is"],
@@ -47,26 +51,41 @@ const filterOptions = {
   ranking: ["Filled out", "Skipped"],
 };
 
+// URL/meta text operators mapping
+const META_OP_MAP = {
+  Equals: "equals",
+  "Not equals": "notEquals",
+  Contains: "contains",
+  "Does not contain": "doesNotContain",
+  "Starts with": "startsWith",
+  "Does not start with": "doesNotStartWith",
+  "Ends with": "endsWith",
+  "Does not end with": "doesNotEndWith",
+} as const;
+
 // creating the options for the filtering to be selected there are 4 types questions, attributes, tags and metadata
 export const generateQuestionAndFilterOptions = (
   survey: TSurvey,
   environmentTags: TTag[] | undefined,
   attributes: TSurveyContactAttributes,
   meta: TSurveyMetaFieldFilter,
-  hiddenFields: TResponseHiddenFieldsFilter
+  hiddenFields: TResponseHiddenFieldsFilter,
+  quotas: TSurveyQuota[]
 ): {
   questionOptions: QuestionOptions[];
   questionFilterOptions: QuestionFilterOptions[];
 } => {
   let questionOptions: QuestionOptions[] = [];
-  let questionFilterOptions: any = [];
+  let questionFilterOptions: QuestionFilterOptions[] = [];
 
-  let questionsOptions: any = [];
+  let questionsOptions: QuestionOption[] = [];
 
   survey.questions.forEach((q) => {
     if (Object.keys(conditionOptions).includes(q.type)) {
       questionsOptions.push({
-        label: q.headline,
+        label: getTextContent(
+          getLocalizedValue(recallToHeadline(q.headline, survey, false, "default"), "default")
+        ),
         questionType: q.type,
         type: OptionsType.QUESTIONS,
         id: q.id,
@@ -102,8 +121,8 @@ export const generateQuestionAndFilterOptions = (
       } else if (q.type === TSurveyQuestionTypeEnum.Matrix) {
         questionFilterOptions.push({
           type: q.type,
-          filterOptions: q.rows.flatMap((row) => Object.values(row)),
-          filterComboBoxOptions: q.columns.flatMap((column) => Object.values(column)),
+          filterOptions: q.rows.map((row) => getLocalizedValue(row.label, "default")),
+          filterComboBoxOptions: q.columns.map((column) => getLocalizedValue(column.label, "default")),
           id: q.id,
         });
       } else {
@@ -165,7 +184,7 @@ export const generateQuestionAndFilterOptions = (
     Object.keys(meta).forEach((m) => {
       questionFilterOptions.push({
         type: "Meta",
-        filterOptions: ["Equals", "Not equals"],
+        filterOptions: m === "url" ? Object.keys(META_OP_MAP) : ["Equals", "Not equals"],
         filterComboBoxOptions: meta[m],
         id: m,
       });
@@ -207,6 +226,22 @@ export const generateQuestionAndFilterOptions = (
   }
   questionOptions = [...questionOptions, { header: OptionsType.OTHERS, option: languageQuestion }];
 
+  if (quotas.length > 0) {
+    const quotaOptions = quotas.map((quota) => {
+      return { label: quota.name, type: OptionsType.QUOTAS, id: quota.id };
+    });
+    questionOptions = [...questionOptions, { header: OptionsType.QUOTAS, option: quotaOptions }];
+
+    quotas.forEach((quota) => {
+      questionFilterOptions.push({
+        type: "Quotas",
+        filterOptions: ["Status"],
+        filterComboBoxOptions: ["Screened in", "Screened out (overquota)", "Not in quota"],
+        id: quota.id,
+      });
+    });
+  }
+
   return { questionOptions: [...questionOptions], questionFilterOptions: [...questionFilterOptions] };
 };
 
@@ -224,6 +259,7 @@ export const getFormattedFilters = (
   const others: FilterValue[] = [];
   const meta: FilterValue[] = [];
   const hiddenFields: FilterValue[] = [];
+  const quotas: FilterValue[] = [];
 
   selectedFilter.filter.forEach((filter) => {
     if (filter.questionType?.type === "Questions") {
@@ -238,12 +274,16 @@ export const getFormattedFilters = (
       meta.push(filter);
     } else if (filter.questionType?.type === "Hidden Fields") {
       hiddenFields.push(filter);
+    } else if (filter.questionType?.type === "Quotas") {
+      quotas.push(filter);
     }
   });
 
   // for completed responses
-  if (selectedFilter.onlyComplete) {
+  if (selectedFilter.responseStatus === "complete") {
     filters["finished"] = true;
+  } else if (selectedFilter.responseStatus === "partial") {
+    filters["finished"] = false;
   }
 
   // for date range responses
@@ -479,18 +519,40 @@ export const getFormattedFilters = (
   if (meta.length) {
     meta.forEach(({ filterType, questionType }) => {
       if (!filters.meta) filters.meta = {};
-      if (!filterType.filterComboBoxValue) return;
-      if (filterType.filterValue === "Equals") {
-        filters.meta[questionType.label ?? ""] = {
-          op: "equals",
-          value: filterType.filterComboBoxValue as string,
-        };
-      } else if (filterType.filterValue === "Not equals") {
-        filters.meta[questionType.label ?? ""] = {
-          op: "notEquals",
-          value: filterType.filterComboBoxValue as string,
-        };
+
+      // For text input cases (URL filtering)
+      if (typeof filterType.filterComboBoxValue === "string" && filterType.filterComboBoxValue.length > 0) {
+        const value = filterType.filterComboBoxValue.trim();
+        const op = META_OP_MAP[filterType.filterValue as keyof typeof META_OP_MAP];
+        if (op) {
+          filters.meta[questionType.label ?? ""] = { op, value };
+        }
       }
+      // For dropdown/select cases (existing metadata fields)
+      else if (Array.isArray(filterType.filterComboBoxValue) && filterType.filterComboBoxValue.length > 0) {
+        const value = filterType.filterComboBoxValue[0]; // Take first selected value
+        if (filterType.filterValue === "Equals") {
+          filters.meta[questionType.label ?? ""] = { op: "equals", value };
+        } else if (filterType.filterValue === "Not equals") {
+          filters.meta[questionType.label ?? ""] = { op: "notEquals", value };
+        }
+      }
+    });
+  }
+
+  if (quotas.length) {
+    quotas.forEach(({ filterType, questionType }) => {
+      filters.quotas ??= {};
+      const quotaId = questionType.id;
+      if (!quotaId) return;
+
+      const statusMap: Record<string, "screenedIn" | "screenedOut" | "screenedOutNotInQuota"> = {
+        "Screened in": "screenedIn",
+        "Screened out (overquota)": "screenedOut",
+        "Not in quota": "screenedOutNotInQuota",
+      };
+      const op = statusMap[String(filterType.filterComboBoxValue)];
+      if (op) filters.quotas[quotaId] = { op };
     });
   }
 

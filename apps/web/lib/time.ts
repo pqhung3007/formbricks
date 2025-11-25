@@ -1,12 +1,17 @@
 import { formatDistance, intlFormat } from "date-fns";
-import { de, enUS, fr, pt, ptBR, zhTW } from "date-fns/locale";
+import { de, enUS, es, fr, ja, nl, pt, ptBR, ro, zhCN, zhTW } from "date-fns/locale";
 import { TUserLocale } from "@formbricks/types/user";
 
-export const convertDateString = (dateString: string) => {
+export const convertDateString = (dateString: string | null) => {
+  if (dateString === null) return null;
   if (!dateString) {
     return dateString;
   }
+
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return "Invalid Date";
+  }
   return intlFormat(
     date,
     {
@@ -86,10 +91,20 @@ const getLocaleForTimeSince = (locale: TUserLocale) => {
       return ptBR;
     case "fr-FR":
       return fr;
+    case "nl-NL":
+      return nl;
     case "zh-Hant-TW":
       return zhTW;
     case "pt-PT":
       return pt;
+    case "ro-RO":
+      return ro;
+    case "ja-JP":
+      return ja;
+    case "zh-Hans-CN":
+      return zhCN;
+    case "es-ES":
+      return es;
   }
 };
 

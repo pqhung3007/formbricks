@@ -1,5 +1,40 @@
 "use client";
 
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  FingerprintIcon,
+  MonitorSmartphoneIcon,
+  MoreVertical,
+  TagIcon,
+  Trash2,
+  Users2Icon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { z } from "zod";
+import { TContactAttributeKey } from "@formbricks/types/contact-attribute-key";
+import type {
+  TArithmeticOperator,
+  TAttributeOperator,
+  TBaseFilter,
+  TDeviceOperator,
+  TSegment,
+  TSegmentAttributeFilter,
+  TSegmentConnector,
+  TSegmentDeviceFilter,
+  TSegmentFilter,
+  TSegmentFilterValue,
+  TSegmentOperator,
+  TSegmentPersonFilter,
+  TSegmentSegmentFilter,
+} from "@formbricks/types/segment";
+import {
+  ARITHMETIC_OPERATORS,
+  ATTRIBUTE_OPERATORS,
+  DEVICE_OPERATORS,
+  PERSON_OPERATORS,
+} from "@formbricks/types/segment";
 import { cn } from "@/lib/cn";
 import { structuredClone } from "@/lib/pollyfills/structuredClone";
 import { isCapitalized } from "@/lib/utils/strings";
@@ -29,41 +64,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/modules/ui/components/select";
-import { useTranslate } from "@tolgee/react";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  FingerprintIcon,
-  MonitorSmartphoneIcon,
-  MoreVertical,
-  TagIcon,
-  Trash2,
-  Users2Icon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { z } from "zod";
-import { TContactAttributeKey } from "@formbricks/types/contact-attribute-key";
-import type {
-  TArithmeticOperator,
-  TAttributeOperator,
-  TBaseFilter,
-  TDeviceOperator,
-  TSegment,
-  TSegmentAttributeFilter,
-  TSegmentConnector,
-  TSegmentDeviceFilter,
-  TSegmentFilter,
-  TSegmentFilterValue,
-  TSegmentOperator,
-  TSegmentPersonFilter,
-  TSegmentSegmentFilter,
-} from "@formbricks/types/segment";
-import {
-  ARITHMETIC_OPERATORS,
-  ATTRIBUTE_OPERATORS,
-  DEVICE_OPERATORS,
-  PERSON_OPERATORS,
-} from "@formbricks/types/segment";
 import { AddFilterModal } from "./add-filter-modal";
 
 interface TSegmentFilterProps {
@@ -94,7 +94,7 @@ function SegmentFilterItemConnector({
   filterId: string;
   viewOnly?: boolean;
 }) {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const updateLocalSurvey = (newConnector: TSegmentConnector) => {
     const updatedSegment = structuredClone(segment);
     if (updatedSegment.filters) {
@@ -116,14 +116,16 @@ function SegmentFilterItemConnector({
 
   return (
     <div className="w-[40px]">
-      <span
+      <button
+        type="button"
+        aria-label={connector ?? t("environments.segments.where")}
         className={cn(Boolean(connector) && "cursor-pointer underline", viewOnly && "cursor-not-allowed")}
         onClick={() => {
           if (viewOnly) return;
           onConnectorChange();
         }}>
-        {connector ? connector : t("environments.segments.where")}
-      </span>
+        {connector ?? t("environments.segments.where")}
+      </button>
     </div>
   );
 }
@@ -143,7 +145,7 @@ function SegmentFilterItemContextMenu({
   onMoveFilter: (filterId: string, direction: "up" | "down") => void;
   viewOnly?: boolean;
 }) {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2">
       <DropdownMenu>
@@ -216,7 +218,7 @@ function AttributeSegmentFilter({
   viewOnly,
 }: TAttributeSegmentFilterProps) {
   const { contactAttributeKey } = resource.root;
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const operatorText = convertOperatorToText(resource.qualifier.operator);
 
   const [valueError, setValueError] = useState("");
@@ -234,7 +236,7 @@ function AttributeSegmentFilter({
         setValueError(t("environments.segments.value_must_be_a_number"));
       }
     }
-  }, [resource.qualifier, resource.value]);
+  }, [resource.qualifier, resource.value, t]);
 
   const operatorArr = ATTRIBUTE_OPERATORS.map((operator) => {
     return {
@@ -312,7 +314,7 @@ function AttributeSegmentFilter({
         }}
         value={attrKeyValue}>
         <SelectTrigger
-          className="flex w-auto items-center justify-center bg-white whitespace-nowrap capitalize"
+          className="flex w-auto items-center justify-center whitespace-nowrap bg-white"
           hideArrow>
           <SelectValue>
             <div className={cn("flex items-center gap-2", !isCapitalized(attrKeyValue ?? "") && "lowercase")}>
@@ -325,7 +327,7 @@ function AttributeSegmentFilter({
         <SelectContent>
           {contactAttributeKeys.map((attrClass) => (
             <SelectItem key={attrClass.id} value={attrClass.key}>
-              {attrClass.name}
+              {attrClass.name ?? attrClass.key}
             </SelectItem>
           ))}
         </SelectContent>
@@ -404,7 +406,7 @@ function PersonSegmentFilter({
 }: TPersonSegmentFilterProps) {
   const { personIdentifier } = resource.root;
   const operatorText = convertOperatorToText(resource.qualifier.operator);
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [valueError, setValueError] = useState("");
 
   // when the operator changes, we need to check if the value is valid
@@ -420,7 +422,7 @@ function PersonSegmentFilter({
         setValueError(t("environments.segments.value_must_be_a_number"));
       }
     }
-  }, [resource.qualifier, resource.value]);
+  }, [resource.qualifier, resource.value, t]);
 
   const operatorArr = PERSON_OPERATORS.map((operator) => {
     return {
@@ -494,7 +496,7 @@ function PersonSegmentFilter({
         }}
         value={personIdentifier}>
         <SelectTrigger
-          className="flex w-auto items-center justify-center bg-white whitespace-nowrap capitalize"
+          className="flex w-auto items-center justify-center whitespace-nowrap bg-white"
           hideArrow>
           <SelectValue>
             <div className="flex items-center gap-1 lowercase">
@@ -626,14 +628,16 @@ function SegmentSegmentFilter({
       />
 
       <div>
-        <span
+        <button
+          type="button"
+          aria-label={operatorText}
           className={cn("cursor-pointer underline", viewOnly && "cursor-not-allowed")}
           onClick={() => {
             if (viewOnly) return;
             toggleSegmentOperator();
           }}>
           {operatorText}
-        </span>
+        </button>
       </div>
 
       <Select
@@ -643,7 +647,7 @@ function SegmentSegmentFilter({
         }}
         value={currentSegment?.id}>
         <SelectTrigger
-          className="flex w-auto items-center justify-center bg-white whitespace-nowrap capitalize"
+          className="flex w-auto items-center justify-center whitespace-nowrap bg-white"
           hideArrow>
           <div className="flex items-center gap-1">
             <Users2Icon className="h-4 w-4 text-sm" />
@@ -688,7 +692,7 @@ function DeviceFilter({
   viewOnly,
 }: TDeviceFilterProps) {
   const { value } = resource;
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const operatorText = convertOperatorToText(resource.qualifier.operator);
   const operatorArr = DEVICE_OPERATORS.map((operator) => ({
     id: operator,
@@ -796,7 +800,7 @@ export function SegmentFilter({
   onMoveFilter,
   viewOnly = false,
 }: TSegmentFilterProps) {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [addFilterModalOpen, setAddFilterModalOpen] = useState(false);
   const updateFilterValueInSegment = (filterId: string, newValue: string | number) => {
     const updatedSegment = structuredClone(segment);

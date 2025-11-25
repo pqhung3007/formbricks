@@ -1,67 +1,55 @@
 import "server-only";
-import { cache } from "@/lib/cache";
+import { Prisma } from "@prisma/client";
 import { cache as reactCache } from "react";
 import { prisma } from "@formbricks/database";
-import { ZOptionalNumber, ZString } from "@formbricks/types/common";
-import { ZId } from "@formbricks/types/common";
+import { PrismaErrorType } from "@formbricks/database/types/error";
+import { ZId, ZOptionalNumber, ZString } from "@formbricks/types/common";
+import { Result, err, ok } from "@formbricks/types/error-handlers";
 import { TTag } from "@formbricks/types/tags";
+import { TagError } from "@/modules/projects/settings/types/tag";
 import { ITEMS_PER_PAGE } from "../constants";
 import { validateInputs } from "../utils/validate";
-import { tagCache } from "./cache";
 
 export const getTagsByEnvironmentId = reactCache(
-  async (environmentId: string, page?: number): Promise<TTag[]> =>
-    cache(
-      async () => {
-        validateInputs([environmentId, ZId], [page, ZOptionalNumber]);
+  async (environmentId: string, page?: number): Promise<TTag[]> => {
+    validateInputs([environmentId, ZId], [page, ZOptionalNumber]);
 
-        try {
-          const tags = await prisma.tag.findMany({
-            where: {
-              environmentId,
-            },
-            take: page ? ITEMS_PER_PAGE : undefined,
-            skip: page ? ITEMS_PER_PAGE * (page - 1) : undefined,
-          });
+    try {
+      const tags = await prisma.tag.findMany({
+        where: {
+          environmentId,
+        },
+        take: page ? ITEMS_PER_PAGE : undefined,
+        skip: page ? ITEMS_PER_PAGE * (page - 1) : undefined,
+      });
 
-          return tags;
-        } catch (error) {
-          throw error;
-        }
-      },
-      [`getTagsByEnvironmentId-${environmentId}-${page}`],
-      {
-        tags: [tagCache.tag.byEnvironmentId(environmentId)],
-      }
-    )()
+      return tags;
+    } catch (error) {
+      throw error;
+    }
+  }
 );
 
-export const getTag = reactCache(
-  async (id: string): Promise<TTag | null> =>
-    cache(
-      async () => {
-        validateInputs([id, ZId]);
+export const getTag = reactCache(async (id: string): Promise<TTag | null> => {
+  validateInputs([id, ZId]);
 
-        try {
-          const tag = await prisma.tag.findUnique({
-            where: {
-              id,
-            },
-          });
-
-          return tag;
-        } catch (error) {
-          throw error;
-        }
+  try {
+    const tag = await prisma.tag.findUnique({
+      where: {
+        id,
       },
-      [`getTag-${id}`],
-      {
-        tags: [tagCache.tag.byId(id)],
-      }
-    )()
-);
+    });
 
-export const createTag = async (environmentId: string, name: string): Promise<TTag> => {
+    return tag;
+  } catch (error) {
+    throw error;
+  }
+});
+
+export const createTag = async (
+  environmentId: string,
+  name: string
+): Promise<Result<TTag, { code: TagError; message: string; meta?: Record<string, string> }>> => {
   validateInputs([environmentId, ZId], [name, ZString]);
 
   try {
@@ -72,13 +60,19 @@ export const createTag = async (environmentId: string, name: string): Promise<TT
       },
     });
 
-    tagCache.revalidate({
-      id: tag.id,
-      environmentId,
-    });
-
-    return tag;
+    return ok(tag);
   } catch (error) {
-    throw error;
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === PrismaErrorType.UniqueConstraintViolation) {
+        return err({
+          code: TagError.TAG_NAME_ALREADY_EXISTS,
+          message: "Tag with this name already exists",
+        });
+      }
+    }
+    return err({
+      code: TagError.UNEXPECTED_ERROR,
+      message: error.message,
+    });
   }
 };

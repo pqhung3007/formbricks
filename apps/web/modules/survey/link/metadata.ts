@@ -1,34 +1,52 @@
-import { COLOR_DEFAULTS } from "@/lib/styling/constants";
-import { getSurveyMetadata } from "@/modules/survey/link/lib/survey";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getBrandColorForURL, getNameForURL, getSurveyOpenGraphMetadata } from "./lib/metadata-utils";
+import { getSurveyWithMetadata } from "@/modules/survey/link/lib/data";
+import { getBasicSurveyMetadata, getSurveyOpenGraphMetadata } from "./lib/metadata-utils";
 
-export const getMetadataForLinkSurvey = async (surveyId: string): Promise<Metadata> => {
-  const survey = await getSurveyMetadata(surveyId);
+export const getMetadataForLinkSurvey = async (
+  surveyId: string,
+  languageCode?: string
+): Promise<Metadata> => {
+  const survey = await getSurveyWithMetadata(surveyId);
 
-  if (!survey || survey.type !== "link" || survey.status === "draft") {
+  if (!survey || survey?.type !== "link" || survey?.status === "draft") {
     notFound();
   }
 
-  const brandColor = getBrandColorForURL(survey.styling?.brandColor?.light ?? COLOR_DEFAULTS.brandColor);
-  const surveyName = getNameForURL(survey.name);
-  const ogImgURL = `/api/v1/og?brandColor=${brandColor}&name=${surveyName}`;
+  const { title, description, ogImage } = await getBasicSurveyMetadata(surveyId, languageCode, survey);
+  const surveyBrandColor = survey.styling?.brandColor?.light;
 
-  // Use the shared function for creating the base metadata but override with specific OpenGraph data
-  const baseMetadata = getSurveyOpenGraphMetadata(survey.id, survey.name);
+  // Use the shared function for creating the base metadata but override with custom data
+  const baseMetadata = getSurveyOpenGraphMetadata(survey.id, title, surveyBrandColor);
 
-  // Override with the custom image URL that uses the survey's brand color
+  // Override with the custom image URL
   if (baseMetadata.openGraph) {
-    baseMetadata.openGraph.images = [ogImgURL];
+    baseMetadata.openGraph.images = ogImage ?? baseMetadata.openGraph.images;
+    baseMetadata.openGraph.description = description;
   }
 
   if (baseMetadata.twitter) {
-    baseMetadata.twitter.images = [ogImgURL];
+    baseMetadata.twitter.images = ogImage ?? baseMetadata.twitter.images;
+    baseMetadata.twitter.description = description;
   }
 
+  const canonicalPath = `/s/${surveyId}`;
+
   return {
-    title: survey.name,
+    title,
+    description,
     ...baseMetadata,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+        noimageindex: true,
+      },
+    },
   };
 };

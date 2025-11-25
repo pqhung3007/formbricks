@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/modules/ui/components/button";
 import {
   Command,
@@ -9,8 +11,6 @@ import {
   CommandList,
 } from "@/modules/ui/components/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/modules/ui/components/popover";
-import { useTranslate } from "@tolgee/react";
-import { useEffect, useMemo } from "react";
 
 interface ITagsComboboxProps {
   tags: Tag[];
@@ -38,7 +38,7 @@ export const TagsCombobox = ({
   open,
   setOpen,
 }: ITagsComboboxProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const tagsToSearch = useMemo(
     () =>
       tags.filter((tag) => {
@@ -58,12 +58,12 @@ export const TagsCombobox = ({
     }
   }, [open, setSearchValue]);
 
+  const trimmedSearchValue = useMemo(() => searchValue.trim(), [searchValue]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" aria-expanded={open}>
-          {t("environments.project.tags.add_tag")}
-        </Button>
+        <Button aria-expanded={open}>{t("environments.project.tags.add_tag")}</Button>
       </PopoverTrigger>
       <PopoverContent className="max-h-60 w-[200px] overflow-y-auto p-0">
         <Command
@@ -90,19 +90,19 @@ export const TagsCombobox = ({
               value={searchValue}
               onValueChange={(search) => setSearchValue(search)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && searchValue !== "") {
-                  if (
-                    !tagsToSearch?.find((tag) =>
-                      tag?.label?.toLowerCase().includes(searchValue?.toLowerCase())
-                    )
-                  ) {
-                    createTag?.(searchValue);
+                if (e.key === "Enter" && trimmedSearchValue !== "") {
+                  const alreadyExists =
+                    currentTags.some((tag) => tag.label === trimmedSearchValue) ||
+                    tagsToSearch.some((tag) => tag.label === trimmedSearchValue);
+
+                  if (!alreadyExists) {
+                    createTag?.(trimmedSearchValue);
                   }
                 }
               }}
             />
           </div>
-          <CommandList>
+          <CommandList className="border-0">
             <CommandGroup>
               {tagsToSearch?.map((tag) => {
                 return (
@@ -118,15 +118,16 @@ export const TagsCombobox = ({
                   </CommandItem>
                 );
               })}
-              {searchValue !== "" &&
-                !currentTags.find((tag) => tag.label === searchValue) &&
-                !tagsToSearch.find((tag) => tag.label === searchValue) && (
+              {trimmedSearchValue !== "" &&
+                !currentTags.find((tag) => tag.label === trimmedSearchValue) &&
+                !tagsToSearch.find((tag) => tag.label === trimmedSearchValue) && (
                   <CommandItem value="_create">
                     <button
-                      onClick={() => createTag?.(searchValue)}
+                      type="button"
+                      onClick={() => createTag?.(trimmedSearchValue)}
                       className="h-8 w-full text-left hover:cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={!!currentTags.find((tag) => tag.label === searchValue)}>
-                      + {t("environments.project.tags.add")} {searchValue}
+                      disabled={!!currentTags.find((tag) => tag.label === trimmedSearchValue)}>
+                      + {t("environments.project.tags.add")} {trimmedSearchValue}
                     </button>
                   </CommandItem>
                 )}

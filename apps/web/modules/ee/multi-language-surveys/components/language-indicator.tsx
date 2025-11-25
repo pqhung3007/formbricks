@@ -1,8 +1,8 @@
-import { useClickOutside } from "@/lib/utils/hooks/useClickOutside";
 import { ChevronDown } from "lucide-react";
 import { useRef, useState } from "react";
 import { getLanguageLabel } from "@formbricks/i18n-utils/src/utils";
 import type { TSurveyLanguage } from "@formbricks/types/surveys/types";
+import { useClickOutside } from "@/lib/utils/hooks/useClickOutside";
 
 interface LanguageIndicatorProps {
   selectedLanguageCode: string;
@@ -44,7 +44,7 @@ export function LanguageIndicator({
   });
 
   return (
-    <div className="absolute top-2 right-2">
+    <div className="absolute right-2 top-2">
       <button
         aria-expanded={showLanguageDropdown}
         aria-haspopup="true"

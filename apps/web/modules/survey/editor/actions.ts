@@ -1,8 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { ZActionClassInput } from "@formbricks/types/action-classes";
+import { OperationNotAllowedError, ResourceNotFoundError } from "@formbricks/types/errors";
+import { TSurvey, ZSurvey } from "@formbricks/types/surveys/types";
 import { UNSPLASH_ACCESS_KEY, UNSPLASH_ALLOWED_DOMAINS } from "@/lib/constants";
 import { actionClient, authenticatedActionClient } from "@/lib/utils/action-client";
-import { checkAuthorizationUpdated } from "@/lib/utils/action-client-middleware";
+import { checkAuthorizationUpdated } from "@/lib/utils/action-client/action-client-middleware";
+import { AuthenticatedActionClientCtx } from "@/lib/utils/action-client/types/context";
 import {
   getOrganizationIdFromEnvironmentId,
   getOrganizationIdFromProjectId,
@@ -10,16 +16,14 @@ import {
   getProjectIdFromEnvironmentId,
   getProjectIdFromSurveyId,
 } from "@/lib/utils/helper";
+import { withAuditLogging } from "@/modules/ee/audit-logs/lib/handler";
 import { checkMultiLanguagePermission } from "@/modules/ee/multi-language-surveys/lib/actions";
 import { createActionClass } from "@/modules/survey/editor/lib/action-class";
+import { checkExternalUrlsPermission } from "@/modules/survey/editor/lib/check-external-urls-permission";
 import { updateSurvey } from "@/modules/survey/editor/lib/survey";
 import { getSurveyFollowUpsPermission } from "@/modules/survey/follow-ups/lib/utils";
 import { checkSpamProtectionPermission } from "@/modules/survey/lib/permission";
-import { getOrganizationBilling } from "@/modules/survey/lib/survey";
-import { z } from "zod";
-import { ZActionClassInput } from "@formbricks/types/action-classes";
-import { OperationNotAllowedError, ResourceNotFoundError } from "@formbricks/types/errors";
-import { ZSurvey } from "@formbricks/types/surveys/types";
+import { getOrganizationBilling, getSurvey } from "@/modules/survey/lib/survey";
 import { getProject } from "./lib/project";
 
 /**
@@ -42,40 +46,56 @@ const checkSurveyFollowUpsPermission = async (organizationId: string): Promise<v
   }
 };
 
-export const updateSurveyAction = authenticatedActionClient
-  .schema(ZSurvey)
-  .action(async ({ ctx, parsedInput }) => {
-    const organizationId = await getOrganizationIdFromSurveyId(parsedInput.id);
-    await checkAuthorizationUpdated({
-      userId: ctx.user.id,
-      organizationId,
-      access: [
-        {
-          type: "organization",
-          roles: ["owner", "manager"],
-        },
-        {
-          type: "projectTeam",
-          projectId: await getProjectIdFromSurveyId(parsedInput.id),
-          minPermission: "readWrite",
-        },
-      ],
-    });
+export const updateSurveyAction = authenticatedActionClient.schema(ZSurvey).action(
+  withAuditLogging(
+    "updated",
+    "survey",
+    async ({ ctx, parsedInput }: { ctx: AuthenticatedActionClientCtx; parsedInput: TSurvey }) => {
+      const organizationId = await getOrganizationIdFromSurveyId(parsedInput.id);
+      await checkAuthorizationUpdated({
+        userId: ctx.user.id,
+        organizationId,
+        access: [
+          {
+            type: "organization",
+            roles: ["owner", "manager"],
+          },
+          {
+            type: "projectTeam",
+            projectId: await getProjectIdFromSurveyId(parsedInput.id),
+            minPermission: "readWrite",
+          },
+        ],
+      });
 
-    if (parsedInput.recaptcha?.enabled) {
-      await checkSpamProtectionPermission(organizationId);
+      if (parsedInput.recaptcha?.enabled) {
+        await checkSpamProtectionPermission(organizationId);
+      }
+
+      if (parsedInput.followUps?.length) {
+        await checkSurveyFollowUpsPermission(organizationId);
+      }
+
+      if (parsedInput.languages?.length) {
+        await checkMultiLanguagePermission(organizationId);
+      }
+
+      ctx.auditLoggingCtx.organizationId = organizationId;
+      ctx.auditLoggingCtx.surveyId = parsedInput.id;
+      const oldObject = await getSurvey(parsedInput.id);
+
+      // Check external URLs permission (with grandfathering)
+      await checkExternalUrlsPermission(organizationId, parsedInput, oldObject);
+      const result = await updateSurvey(parsedInput);
+      ctx.auditLoggingCtx.oldObject = oldObject;
+      ctx.auditLoggingCtx.newObject = result;
+
+      revalidatePath(`/environments/${result.environmentId}/surveys/${result.id}`);
+
+      return result;
     }
-
-    if (parsedInput.followUps?.length) {
-      await checkSurveyFollowUpsPermission(organizationId);
-    }
-
-    if (parsedInput.languages?.length) {
-      await checkMultiLanguagePermission(organizationId);
-    }
-
-    return await updateSurvey(parsedInput);
-  });
+  )
+);
 
 const ZRefetchProjectAction = z.object({
   projectId: z.string().cuid2(),
@@ -186,24 +206,33 @@ const ZCreateActionClassAction = z.object({
   action: ZActionClassInput,
 });
 
-export const createActionClassAction = authenticatedActionClient
-  .schema(ZCreateActionClassAction)
-  .action(async ({ ctx, parsedInput }) => {
-    await checkAuthorizationUpdated({
-      userId: ctx.user.id,
-      organizationId: await getOrganizationIdFromEnvironmentId(parsedInput.action.environmentId),
-      access: [
-        {
-          type: "organization",
-          roles: ["owner", "manager"],
-        },
-        {
-          type: "projectTeam",
-          minPermission: "readWrite",
-          projectId: await getProjectIdFromEnvironmentId(parsedInput.action.environmentId),
-        },
-      ],
-    });
+export const createActionClassAction = authenticatedActionClient.schema(ZCreateActionClassAction).action(
+  withAuditLogging(
+    "created",
+    "actionClass",
+    async ({ ctx, parsedInput }: { ctx: AuthenticatedActionClientCtx; parsedInput: Record<string, any> }) => {
+      const organizationId = await getOrganizationIdFromEnvironmentId(parsedInput.action.environmentId);
+      await checkAuthorizationUpdated({
+        userId: ctx.user.id,
+        organizationId: organizationId,
+        access: [
+          {
+            type: "organization",
+            roles: ["owner", "manager"],
+          },
+          {
+            type: "projectTeam",
+            minPermission: "readWrite",
+            projectId: await getProjectIdFromEnvironmentId(parsedInput.action.environmentId),
+          },
+        ],
+      });
 
-    return await createActionClass(parsedInput.action.environmentId, parsedInput.action);
-  });
+      ctx.auditLoggingCtx.organizationId = organizationId;
+      ctx.auditLoggingCtx.actionClassId = parsedInput.action.id;
+      const result = await createActionClass(parsedInput.action.environmentId, parsedInput.action);
+      ctx.auditLoggingCtx.newObject = result;
+      return result;
+    }
+  )
+);

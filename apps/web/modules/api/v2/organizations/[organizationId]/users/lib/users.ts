@@ -1,7 +1,7 @@
-import { teamCache } from "@/lib/cache/team";
-import { membershipCache } from "@/lib/membership/cache";
-import { captureTelemetry } from "@/lib/telemetry";
-import { userCache } from "@/lib/user/cache";
+import { OrganizationRole, Prisma, TeamUserRole } from "@prisma/client";
+import { prisma } from "@formbricks/database";
+import { TUser } from "@formbricks/database/zod/users";
+import { Result, err, ok } from "@formbricks/types/error-handlers";
 import { getUsersQuery } from "@/modules/api/v2/organizations/[organizationId]/users/lib/utils";
 import {
   TGetUsersFilter,
@@ -10,10 +10,6 @@ import {
 } from "@/modules/api/v2/organizations/[organizationId]/users/types/users";
 import { ApiErrorResponseV2 } from "@/modules/api/v2/types/api-error";
 import { ApiResponseWithMeta } from "@/modules/api/v2/types/api-success";
-import { OrganizationRole, Prisma, TeamUserRole } from "@prisma/client";
-import { prisma } from "@formbricks/database";
-import { TUser } from "@formbricks/database/zod/users";
-import { Result, err, ok } from "@formbricks/types/error-handlers";
 
 export const getUsers = async (
   organizationId: string,
@@ -76,8 +72,6 @@ export const createUser = async (
   userInput: TUserInput,
   organizationId
 ): Promise<Result<TUser, ApiErrorResponseV2>> => {
-  captureTelemetry("user created");
-
   const { name, email, role, teams, isActive } = userInput;
 
   try {
@@ -131,25 +125,6 @@ export const createUser = async (
       },
     });
 
-    existingTeams?.forEach((team) => {
-      teamCache.revalidate({
-        id: team.id,
-        organizationId: organizationId,
-      });
-
-      for (const projectTeam of team.projectTeams) {
-        teamCache.revalidate({
-          projectId: projectTeam.projectId,
-        });
-      }
-    });
-
-    // revalidate membership cache
-    membershipCache.revalidate({
-      organizationId: organizationId,
-      userId: user.id,
-    });
-
     const returnedUser = {
       id: user.id,
       createdAt: user.createdAt,
@@ -172,8 +147,6 @@ export const updateUser = async (
   userInput: TUserInputPatch,
   organizationId: string
 ): Promise<Result<TUser, ApiErrorResponseV2>> => {
-  captureTelemetry("user updated");
-
   const { name, email, role, teams, isActive } = userInput;
   let existingTeams: string[] = [];
   let newTeams;
@@ -297,47 +270,6 @@ export const updateUser = async (
 
     // Retrieve the updated user result. Since the update was the last operation, it is the last item.
     const updatedUser = results[results.length - 1];
-
-    // For each deletion, revalidate the corresponding team and its project caches.
-    for (const opResult of results.slice(0, deleteTeamOps.length)) {
-      const deletedTeamUser = opResult;
-      teamCache.revalidate({
-        id: deletedTeamUser.team.id,
-        userId: existingUser.id,
-        organizationId,
-      });
-
-      deletedTeamUser.team.projectTeams.forEach((projectTeam) => {
-        teamCache.revalidate({
-          projectId: projectTeam.projectId,
-        });
-      });
-    }
-    // For each creation, do the same.
-    for (const opResult of results.slice(deleteTeamOps.length, deleteTeamOps.length + createTeamOps.length)) {
-      const newTeamUser = opResult;
-      teamCache.revalidate({
-        id: newTeamUser.team.id,
-        userId: existingUser.id,
-        organizationId,
-      });
-
-      newTeamUser.team.projectTeams.forEach((projectTeam) => {
-        teamCache.revalidate({
-          projectId: projectTeam.projectId,
-        });
-      });
-    }
-
-    // Revalidate membership and user caches for the updated user.
-    membershipCache.revalidate({
-      organizationId,
-      userId: updatedUser.id,
-    });
-    userCache.revalidate({
-      id: updatedUser.id,
-      email: updatedUser.email,
-    });
 
     const returnedUser = {
       id: updatedUser.id,

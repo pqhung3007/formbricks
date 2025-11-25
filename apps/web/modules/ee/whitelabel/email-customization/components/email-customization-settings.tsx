@@ -1,5 +1,14 @@
 "use client";
 
+import { RepeatIcon, Trash2Icon } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import React, { useRef, useState } from "react";
+import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TOrganization } from "@formbricks/types/organizations";
+import { TAllowedFileExtension } from "@formbricks/types/storage";
+import { TUser } from "@formbricks/types/user";
 import { SettingsCard } from "@/app/(app)/environments/[environmentId]/settings/components/SettingsCard";
 import { cn } from "@/lib/cn";
 import { getFormattedErrorMessage } from "@/lib/utils/helper";
@@ -8,21 +17,13 @@ import {
   sendTestEmailAction,
   updateOrganizationEmailLogoUrlAction,
 } from "@/modules/ee/whitelabel/email-customization/actions";
+import { handleFileUpload } from "@/modules/storage/file-upload";
 import { Alert, AlertDescription } from "@/modules/ui/components/alert";
 import { Button } from "@/modules/ui/components/button";
 import { Uploader } from "@/modules/ui/components/file-input/components/uploader";
-import { uploadFile } from "@/modules/ui/components/file-input/lib/utils";
+import { showStorageNotConfiguredToast } from "@/modules/ui/components/storage-not-configured-toast/lib/utils";
 import { Muted, P, Small } from "@/modules/ui/components/typography";
 import { ModalButton, UpgradePrompt } from "@/modules/ui/components/upgrade-prompt";
-import { useTranslate } from "@tolgee/react";
-import { RepeatIcon, Trash2Icon } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import React, { useRef, useState } from "react";
-import { toast } from "react-hot-toast";
-import { TAllowedFileExtension } from "@formbricks/types/common";
-import { TOrganization } from "@formbricks/types/organizations";
-import { TUser } from "@formbricks/types/user";
 
 const allowedFileExtensions: TAllowedFileExtension[] = ["jpeg", "png", "jpg", "webp"];
 
@@ -34,6 +35,7 @@ interface EmailCustomizationSettingsProps {
   isFormbricksCloud: boolean;
   user: TUser | null;
   fbLogoUrl: string;
+  isStorageConfigured: boolean;
 }
 
 export const EmailCustomizationSettings = ({
@@ -44,8 +46,9 @@ export const EmailCustomizationSettings = ({
   isFormbricksCloud,
   user,
   fbLogoUrl,
+  isStorageConfigured,
 }: EmailCustomizationSettingsProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string>(organization.whitelabel?.logoUrl || fbLogoUrl);
@@ -57,10 +60,15 @@ export const EmailCustomizationSettings = ({
   const router = useRouter();
 
   const onFileInputChange = (files: File[]) => {
+    if (!isStorageConfigured) {
+      showStorageNotConfiguredToast();
+      return;
+    }
+
     const file = files[0];
     if (!file) return;
 
-    // Revoke any previous object URL so we don’t leak memory
+    // Revoke any previous object URL so we don't leak memory
     if (logoUrl) {
       URL.revokeObjectURL(logoUrl);
     }
@@ -78,6 +86,11 @@ export const EmailCustomizationSettings = ({
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!isStorageConfigured) {
+      showStorageNotConfiguredToast();
+      return;
+    }
 
     const files = Array.from(e.dataTransfer.files);
     const file = files[0];
@@ -120,7 +133,13 @@ export const EmailCustomizationSettings = ({
   const handleSave = async () => {
     if (!logoFile) return;
     setIsSaving(true);
-    const { url } = await uploadFile(logoFile, allowedFileExtensions, environmentId);
+    const { url, error } = await handleFileUpload(logoFile, environmentId, allowedFileExtensions);
+
+    if (error) {
+      toast.error(error);
+      setIsSaving(false);
+      return;
+    }
 
     const updateLogoResponse = await updateOrganizationEmailLogoUrlAction({
       organizationId: organization.id,
@@ -187,7 +206,7 @@ export const EmailCustomizationSettings = ({
             <div className="mb-10">
               <Small>{t("environments.settings.general.logo_in_email_header")}</Small>
 
-              <div className="mt-2 mb-6 flex items-center gap-4">
+              <div className="mb-6 mt-2 flex items-center gap-4">
                 {logoUrl && (
                   <div className="flex flex-col gap-2">
                     <div className="flex w-max items-center justify-center rounded-lg border border-slate-200 px-4 py-2">
@@ -204,8 +223,14 @@ export const EmailCustomizationSettings = ({
                       <Button
                         data-testid="replace-logo-button"
                         variant="secondary"
-                        onClick={() => inputRef.current?.click()}
-                        disabled={isReadOnly}>
+                        onClick={() => {
+                          if (!isStorageConfigured) {
+                            showStorageNotConfiguredToast();
+                            return;
+                          }
+                          inputRef.current?.click();
+                        }}
+                        disabled={isReadOnly || isSaving}>
                         <RepeatIcon className="h-4 w-4" />
                         {t("environments.settings.general.replace_logo")}
                       </Button>
@@ -213,7 +238,7 @@ export const EmailCustomizationSettings = ({
                         data-testid="remove-logo-button"
                         onClick={removeLogo}
                         variant="outline"
-                        disabled={isReadOnly}>
+                        disabled={isReadOnly || isSaving}>
                         <Trash2Icon className="h-4 w-4" />
                         {t("environments.settings.general.remove_logo")}
                       </Button>
@@ -234,6 +259,7 @@ export const EmailCustomizationSettings = ({
                   multiple={false}
                   handleUpload={onFileInputChange}
                   disabled={isReadOnly}
+                  isStorageConfigured={isStorageConfigured}
                 />
               </div>
 
@@ -241,7 +267,7 @@ export const EmailCustomizationSettings = ({
                 <Button
                   data-testid="send-test-email-button"
                   variant="secondary"
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isSaving}
                   onClick={sendTestEmail}>
                   {t("common.send_test_email")}
                 </Button>
@@ -250,7 +276,7 @@ export const EmailCustomizationSettings = ({
                 </Button>
               </div>
             </div>
-            <div className="shadow-card-xl min-h-52 w-[446px] rounded-t-lg border border-slate-100 px-10 pt-10 pb-4">
+            <div className="shadow-card-xl min-h-52 w-[446px] rounded-t-lg border border-slate-100 px-10 pb-4 pt-10">
               <Image
                 data-testid="email-customization-preview-image"
                 src={logoUrl || fbLogoUrl}
@@ -278,7 +304,7 @@ export const EmailCustomizationSettings = ({
         )}
 
         {hasWhiteLabelPermission && isReadOnly && (
-          <Alert variant="warning" className="mt-4 mb-6">
+          <Alert variant="warning" className="mb-6 mt-4">
             <AlertDescription>
               {t("common.only_owners_managers_and_manage_access_members_can_perform_this_action")}
             </AlertDescription>

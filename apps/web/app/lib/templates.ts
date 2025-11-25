@@ -1,3 +1,7 @@
+import { createId } from "@paralleldrive/cuid2";
+import { TFunction } from "i18next";
+import { TSurvey, TSurveyOpenTextQuestion, TSurveyQuestionTypeEnum } from "@formbricks/types/surveys/types";
+import { TTemplate } from "@formbricks/types/templates";
 import {
   buildCTAQuestion,
   buildConsentQuestion,
@@ -12,12 +16,9 @@ import {
   getDefaultSurveyPreset,
   hiddenFieldsDefault,
 } from "@/app/lib/survey-builder";
-import { createId } from "@paralleldrive/cuid2";
-import { TFnType } from "@tolgee/react";
-import { TSurvey, TSurveyOpenTextQuestion, TSurveyQuestionTypeEnum } from "@formbricks/types/surveys/types";
-import { TTemplate } from "@formbricks/types/templates";
+import { createI18nString } from "@/lib/i18n/utils";
 
-const cartAbandonmentSurvey = (t: TFnType): TTemplate => {
+const cartAbandonmentSurvey = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
   return buildSurvey(
@@ -31,7 +32,7 @@ const cartAbandonmentSurvey = (t: TFnType): TTemplate => {
       questions: [
         buildCTAQuestion({
           id: reusableQuestionIds[0],
-          html: t("templates.card_abandonment_survey_question_1_html"),
+          subheader: t("templates.card_abandonment_survey_question_1_html"),
           logic: [createJumpLogic(reusableQuestionIds[0], localSurvey.endings[0].id, "isSkipped")],
           headline: t("templates.card_abandonment_survey_question_1_headline"),
           required: false,
@@ -91,6 +92,7 @@ const cartAbandonmentSurvey = (t: TFnType): TTemplate => {
           id: reusableQuestionIds[1],
           logic: [createJumpLogic(reusableQuestionIds[1], reusableQuestionIds[2], "isSkipped")],
           headline: t("templates.card_abandonment_survey_question_6_headline"),
+          subheader: "",
           required: false,
           label: t("templates.card_abandonment_survey_question_6_label"),
           t,
@@ -117,7 +119,7 @@ const cartAbandonmentSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const siteAbandonmentSurvey = (t: TFnType): TTemplate => {
+const siteAbandonmentSurvey = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
 
@@ -132,7 +134,7 @@ const siteAbandonmentSurvey = (t: TFnType): TTemplate => {
       questions: [
         buildCTAQuestion({
           id: reusableQuestionIds[0],
-          html: t("templates.site_abandonment_survey_question_1_html"),
+          subheader: t("templates.site_abandonment_survey_question_1_html"),
           logic: [createJumpLogic(reusableQuestionIds[0], localSurvey.endings[0].id, "isSkipped")],
           headline: t("templates.site_abandonment_survey_question_2_headline"),
           required: false,
@@ -191,6 +193,7 @@ const siteAbandonmentSurvey = (t: TFnType): TTemplate => {
           id: reusableQuestionIds[1],
           logic: [createJumpLogic(reusableQuestionIds[1], reusableQuestionIds[2], "isSkipped")],
           headline: t("templates.site_abandonment_survey_question_7_headline"),
+          subheader: "",
           required: false,
           label: t("templates.site_abandonment_survey_question_7_label"),
           t,
@@ -216,7 +219,7 @@ const siteAbandonmentSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const productMarketFitSuperhuman = (t: TFnType): TTemplate => {
+const productMarketFitSuperhuman = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId()];
   const localSurvey = getDefaultSurveyPreset(t);
   return buildSurvey(
@@ -230,7 +233,7 @@ const productMarketFitSuperhuman = (t: TFnType): TTemplate => {
       questions: [
         buildCTAQuestion({
           id: reusableQuestionIds[0],
-          html: t("templates.product_market_fit_superhuman_question_1_html"),
+          subheader: t("templates.product_market_fit_superhuman_question_1_html"),
           logic: [createJumpLogic(reusableQuestionIds[0], localSurvey.endings[0].id, "isSkipped")],
           headline: t("templates.product_market_fit_superhuman_question_1_headline"),
           required: false,
@@ -254,7 +257,7 @@ const productMarketFitSuperhuman = (t: TFnType): TTemplate => {
         }),
         buildMultipleChoiceQuestion({
           type: TSurveyQuestionTypeEnum.MultipleChoiceSingle,
-          headline: "templates.product_market_fit_superhuman_question_3_headline",
+          headline: t("templates.product_market_fit_superhuman_question_3_headline"),
           subheader: t("templates.product_market_fit_superhuman_question_3_subheader"),
           required: true,
           shuffleOption: "none",
@@ -293,7 +296,7 @@ const productMarketFitSuperhuman = (t: TFnType): TTemplate => {
   );
 };
 
-const onboardingSegmentation = (t: TFnType): TTemplate => {
+const onboardingSegmentation = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.onboarding_segmentation"),
@@ -354,7 +357,7 @@ const onboardingSegmentation = (t: TFnType): TTemplate => {
   );
 };
 
-const churnSurvey = (t: TFnType): TTemplate => {
+const churnSurvey = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId(), createId(), createId()];
   const reusableOptionIds = [createId(), createId(), createId(), createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
@@ -408,7 +411,7 @@ const churnSurvey = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[2],
-          html: t("templates.churn_survey_question_3_html"),
+          subheader: t("templates.churn_survey_question_3_html"),
           logic: [createJumpLogic(reusableQuestionIds[2], localSurvey.endings[0].id, "isClicked")],
           headline: t("templates.churn_survey_question_3_headline"),
           required: true,
@@ -428,7 +431,7 @@ const churnSurvey = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[4],
-          html: t("templates.churn_survey_question_5_html"),
+          subheader: t("templates.churn_survey_question_5_html"),
           logic: [createJumpLogic(reusableQuestionIds[4], localSurvey.endings[0].id, "isClicked")],
           headline: t("templates.churn_survey_question_5_headline"),
           required: true,
@@ -444,7 +447,7 @@ const churnSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const earnedAdvocacyScore = (t: TFnType): TTemplate => {
+const earnedAdvocacyScore = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId(), createId()];
   const reusableOptionIds = [createId(), createId(), createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
@@ -520,7 +523,122 @@ const earnedAdvocacyScore = (t: TFnType): TTemplate => {
   );
 };
 
-const improveTrialConversion = (t: TFnType): TTemplate => {
+const usabilityScoreRatingSurvey = (t: TFunction): TTemplate => {
+  return buildSurvey(
+    {
+      name: t("templates.usability_score_name"),
+      role: "customerSuccess",
+      industries: ["saas"],
+      channels: ["app", "link"],
+      description: t("templates.usability_rating_description"),
+      questions: [
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_1_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_2_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_3_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_4_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_5_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_6_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_7_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_8_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_9_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+        buildRatingQuestion({
+          range: 5,
+          scale: "number",
+          headline: t("templates.usability_question_10_headline"),
+          required: true,
+          lowerLabel: t("templates.strongly_disagree"),
+          upperLabel: t("templates.strongly_agree"),
+          isColorCodingEnabled: false,
+          t,
+        }),
+      ],
+    },
+    t
+  );
+};
+
+const improveTrialConversion = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId(), createId(), createId(), createId()];
   const reusableOptionIds = [
     createId(),
@@ -591,7 +709,7 @@ const improveTrialConversion = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[3],
-          html: t("templates.improve_trial_conversion_question_4_html"),
+          subheader: t("templates.improve_trial_conversion_question_4_html"),
           logic: [createJumpLogic(reusableQuestionIds[3], localSurvey.endings[0].id, "isClicked")],
           headline: t("templates.improve_trial_conversion_question_4_headline"),
           required: true,
@@ -630,7 +748,7 @@ const improveTrialConversion = (t: TFnType): TTemplate => {
   );
 };
 
-const reviewPrompt = (t: TFnType): TTemplate => {
+const reviewPrompt = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
 
@@ -686,7 +804,7 @@ const reviewPrompt = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[1],
-          html: t("templates.review_prompt_question_2_html"),
+          subheader: t("templates.review_prompt_question_2_html"),
           logic: [createJumpLogic(reusableQuestionIds[1], localSurvey.endings[0].id, "isClicked")],
           headline: t("templates.review_prompt_question_2_headline"),
           required: true,
@@ -712,7 +830,7 @@ const reviewPrompt = (t: TFnType): TTemplate => {
   );
 };
 
-const interviewPrompt = (t: TFnType): TTemplate => {
+const interviewPrompt = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.interview_prompt_name"),
@@ -724,7 +842,7 @@ const interviewPrompt = (t: TFnType): TTemplate => {
         buildCTAQuestion({
           id: createId(),
           headline: t("templates.interview_prompt_question_1_headline"),
-          html: t("templates.interview_prompt_question_1_html"),
+          subheader: t("templates.interview_prompt_question_1_html"),
           buttonLabel: t("templates.interview_prompt_question_1_button_label"),
           buttonUrl: "https://cal.com/johannes",
           buttonExternal: true,
@@ -737,7 +855,7 @@ const interviewPrompt = (t: TFnType): TTemplate => {
   );
 };
 
-const improveActivationRate = (t: TFnType): TTemplate => {
+const improveActivationRate = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId(), createId(), createId(), createId()];
   const reusableOptionIds = [createId(), createId(), createId(), createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
@@ -831,7 +949,7 @@ const improveActivationRate = (t: TFnType): TTemplate => {
   );
 };
 
-const employeeSatisfaction = (t: TFnType): TTemplate => {
+const employeeSatisfaction = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.employee_satisfaction_name"),
@@ -909,7 +1027,7 @@ const employeeSatisfaction = (t: TFnType): TTemplate => {
   );
 };
 
-const uncoverStrengthsAndWeaknesses = (t: TFnType): TTemplate => {
+const uncoverStrengthsAndWeaknesses = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.uncover_strengths_and_weaknesses_name"),
@@ -963,7 +1081,7 @@ const uncoverStrengthsAndWeaknesses = (t: TFnType): TTemplate => {
   );
 };
 
-const productMarketFitShort = (t: TFnType): TTemplate => {
+const productMarketFitShort = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.product_market_fit_short_name"),
@@ -1000,7 +1118,7 @@ const productMarketFitShort = (t: TFnType): TTemplate => {
   );
 };
 
-const marketAttribution = (t: TFnType): TTemplate => {
+const marketAttribution = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.market_attribution_name"),
@@ -1031,7 +1149,7 @@ const marketAttribution = (t: TFnType): TTemplate => {
   );
 };
 
-const changingSubscriptionExperience = (t: TFnType): TTemplate => {
+const changingSubscriptionExperience = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.changing_subscription_experience_name"),
@@ -1074,7 +1192,7 @@ const changingSubscriptionExperience = (t: TFnType): TTemplate => {
   );
 };
 
-const identifyCustomerGoals = (t: TFnType): TTemplate => {
+const identifyCustomerGoals = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.identify_customer_goals_name"),
@@ -1104,7 +1222,7 @@ const identifyCustomerGoals = (t: TFnType): TTemplate => {
   );
 };
 
-const featureChaser = (t: TFnType): TTemplate => {
+const featureChaser = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.feature_chaser_name"),
@@ -1143,7 +1261,7 @@ const featureChaser = (t: TFnType): TTemplate => {
   );
 };
 
-const fakeDoorFollowUp = (t: TFnType): TTemplate => {
+const fakeDoorFollowUp = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.fake_door_follow_up_name"),
@@ -1184,7 +1302,7 @@ const fakeDoorFollowUp = (t: TFnType): TTemplate => {
   );
 };
 
-const feedbackBox = (t: TFnType): TTemplate => {
+const feedbackBox = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId(), createId()];
   const reusableOptionIds = [createId(), createId()];
   const localSurvey = getDefaultSurveyPreset(t);
@@ -1209,6 +1327,7 @@ const feedbackBox = (t: TFnType): TTemplate => {
             t("templates.feedback_box_question_1_choice_1"),
             t("templates.feedback_box_question_1_choice_2"),
           ],
+          choiceIds: [reusableOptionIds[0], reusableOptionIds[1]],
           headline: t("templates.feedback_box_question_1_headline"),
           required: true,
           subheader: t("templates.feedback_box_question_1_subheader"),
@@ -1226,7 +1345,7 @@ const feedbackBox = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[2],
-          html: t("templates.feedback_box_question_3_html"),
+          subheader: t("templates.feedback_box_question_3_html"),
           logic: [
             createJumpLogic(reusableQuestionIds[2], localSurvey.endings[0].id, "isClicked"),
             createJumpLogic(reusableQuestionIds[2], localSurvey.endings[0].id, "isSkipped"),
@@ -1254,7 +1373,7 @@ const feedbackBox = (t: TFnType): TTemplate => {
   );
 };
 
-const integrationSetupSurvey = (t: TFnType): TTemplate => {
+const integrationSetupSurvey = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [createId(), createId(), createId()];
 
   return buildSurvey(
@@ -1329,7 +1448,7 @@ const integrationSetupSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const newIntegrationSurvey = (t: TFnType): TTemplate => {
+const newIntegrationSurvey = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.new_integration_survey_name"),
@@ -1361,7 +1480,7 @@ const newIntegrationSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const docsFeedback = (t: TFnType): TTemplate => {
+const docsFeedback = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.docs_feedback_name"),
@@ -1385,7 +1504,7 @@ const docsFeedback = (t: TFnType): TTemplate => {
         buildOpenTextQuestion({
           headline: t("templates.docs_feedback_question_2_headline"),
           required: false,
-          inputType: "text",
+          inputType: "url",
           t,
         }),
         buildOpenTextQuestion({
@@ -1401,7 +1520,7 @@ const docsFeedback = (t: TFnType): TTemplate => {
   );
 };
 
-const nps = (t: TFnType): TTemplate => {
+const nps = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.nps_name"),
@@ -1430,7 +1549,7 @@ const nps = (t: TFnType): TTemplate => {
   );
 };
 
-const customerSatisfactionScore = (t: TFnType): TTemplate => {
+const customerSatisfactionScore = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [
     createId(),
     createId(),
@@ -1602,7 +1721,7 @@ const customerSatisfactionScore = (t: TFnType): TTemplate => {
   );
 };
 
-const collectFeedback = (t: TFnType): TTemplate => {
+const collectFeedback = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [
     createId(),
     createId(),
@@ -1758,7 +1877,7 @@ const collectFeedback = (t: TFnType): TTemplate => {
   );
 };
 
-const identifyUpsellOpportunities = (t: TFnType): TTemplate => {
+const identifyUpsellOpportunities = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.identify_upsell_opportunities_name"),
@@ -1788,7 +1907,7 @@ const identifyUpsellOpportunities = (t: TFnType): TTemplate => {
   );
 };
 
-const prioritizeFeatures = (t: TFnType): TTemplate => {
+const prioritizeFeatures = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.prioritize_features_name"),
@@ -1841,7 +1960,7 @@ const prioritizeFeatures = (t: TFnType): TTemplate => {
   );
 };
 
-const gaugeFeatureSatisfaction = (t: TFnType): TTemplate => {
+const gaugeFeatureSatisfaction = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.gauge_feature_satisfaction_name"),
@@ -1875,7 +1994,7 @@ const gaugeFeatureSatisfaction = (t: TFnType): TTemplate => {
   );
 };
 
-const marketSiteClarity = (t: TFnType): TTemplate => {
+const marketSiteClarity = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.market_site_clarity_name"),
@@ -1905,6 +2024,7 @@ const marketSiteClarity = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           headline: t("templates.market_site_clarity_question_3_headline"),
+          subheader: "",
           required: false,
           buttonLabel: t("templates.market_site_clarity_question_3_button_label"),
           buttonUrl: "https://app.formbricks.com/auth/signup",
@@ -1917,7 +2037,7 @@ const marketSiteClarity = (t: TFnType): TTemplate => {
   );
 };
 
-const customerEffortScore = (t: TFnType): TTemplate => {
+const customerEffortScore = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.customer_effort_score_name"),
@@ -1949,11 +2069,11 @@ const customerEffortScore = (t: TFnType): TTemplate => {
   );
 };
 
-const careerDevelopmentSurvey = (t: TFnType): TTemplate => {
+const careerDevelopmentSurvey = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.career_development_survey_name"),
-      role: "productManager",
+      role: "peopleManager",
       industries: ["saas", "eCommerce", "other"],
       channels: ["link"],
       description: t("templates.career_development_survey_description"),
@@ -2036,11 +2156,11 @@ const careerDevelopmentSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const professionalDevelopmentSurvey = (t: TFnType): TTemplate => {
+const professionalDevelopmentSurvey = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.professional_development_survey_name"),
-      role: "productManager",
+      role: "peopleManager",
       industries: ["saas", "eCommerce", "other"],
       channels: ["link"],
       description: t("templates.professional_development_survey_description"),
@@ -2053,7 +2173,7 @@ const professionalDevelopmentSurvey = (t: TFnType): TTemplate => {
           shuffleOption: "none",
           choices: [
             t("templates.professional_development_survey_question_1_choice_1"),
-            t("templates.professional_development_survey_question_1_choice_1"),
+            t("templates.professional_development_survey_question_1_choice_2"),
           ],
           t,
         }),
@@ -2122,7 +2242,7 @@ const professionalDevelopmentSurvey = (t: TFnType): TTemplate => {
   );
 };
 
-const rateCheckoutExperience = (t: TFnType): TTemplate => {
+const rateCheckoutExperience = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
   return buildSurvey(
@@ -2199,7 +2319,7 @@ const rateCheckoutExperience = (t: TFnType): TTemplate => {
   );
 };
 
-const measureSearchExperience = (t: TFnType): TTemplate => {
+const measureSearchExperience = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
   return buildSurvey(
@@ -2276,7 +2396,7 @@ const measureSearchExperience = (t: TFnType): TTemplate => {
   );
 };
 
-const evaluateContentQuality = (t: TFnType): TTemplate => {
+const evaluateContentQuality = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
   return buildSurvey(
@@ -2353,7 +2473,7 @@ const evaluateContentQuality = (t: TFnType): TTemplate => {
   );
 };
 
-const measureTaskAccomplishment = (t: TFnType): TTemplate => {
+const measureTaskAccomplishment = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId(), createId(), createId()];
   const reusableOptionIds = [createId(), createId(), createId()];
@@ -2380,6 +2500,7 @@ const measureTaskAccomplishment = (t: TFnType): TTemplate => {
             t("templates.measure_task_accomplishment_question_1_option_2_label"),
             t("templates.measure_task_accomplishment_question_1_option_3_label"),
           ],
+          choiceIds: [reusableOptionIds[0], reusableOptionIds[1], reusableOptionIds[2]],
           headline: t("templates.measure_task_accomplishment_question_1_headline"),
           required: true,
           t,
@@ -2524,7 +2645,7 @@ const measureTaskAccomplishment = (t: TFnType): TTemplate => {
   );
 };
 
-const identifySignUpBarriers = (t: TFnType): TTemplate => {
+const identifySignUpBarriers = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [
     createId(),
@@ -2550,7 +2671,7 @@ const identifySignUpBarriers = (t: TFnType): TTemplate => {
       questions: [
         buildCTAQuestion({
           id: reusableQuestionIds[0],
-          html: t("templates.identify_sign_up_barriers_question_1_html"),
+          subheader: t("templates.identify_sign_up_barriers_question_1_html"),
           logic: [createJumpLogic(reusableQuestionIds[0], localSurvey.endings[0].id, "isSkipped")],
           headline: t("templates.identify_sign_up_barriers_question_1_headline"),
           required: false,
@@ -2675,7 +2796,7 @@ const identifySignUpBarriers = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[8],
-          html: t("templates.identify_sign_up_barriers_question_9_html"),
+          subheader: t("templates.identify_sign_up_barriers_question_9_html"),
           headline: t("templates.identify_sign_up_barriers_question_9_headline"),
           required: false,
           buttonUrl: "https://app.formbricks.com/auth/signup",
@@ -2690,7 +2811,7 @@ const identifySignUpBarriers = (t: TFnType): TTemplate => {
   );
 };
 
-const buildProductRoadmap = (t: TFnType): TTemplate => {
+const buildProductRoadmap = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.build_product_roadmap_name"),
@@ -2723,7 +2844,7 @@ const buildProductRoadmap = (t: TFnType): TTemplate => {
   );
 };
 
-const understandPurchaseIntention = (t: TFnType): TTemplate => {
+const understandPurchaseIntention = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
   return buildSurvey(
@@ -2738,10 +2859,10 @@ const understandPurchaseIntention = (t: TFnType): TTemplate => {
         buildRatingQuestion({
           id: reusableQuestionIds[0],
           logic: [
-            createChoiceJumpLogic(reusableQuestionIds[0], "2", reusableQuestionIds[1]),
-            createChoiceJumpLogic(reusableQuestionIds[0], "3", reusableQuestionIds[2]),
-            createChoiceJumpLogic(reusableQuestionIds[0], "4", reusableQuestionIds[2]),
-            createChoiceJumpLogic(reusableQuestionIds[0], "5", localSurvey.endings[0].id),
+            createChoiceJumpLogic(reusableQuestionIds[0], 2, reusableQuestionIds[1]),
+            createChoiceJumpLogic(reusableQuestionIds[0], 3, reusableQuestionIds[2]),
+            createChoiceJumpLogic(reusableQuestionIds[0], 4, reusableQuestionIds[2]),
+            createChoiceJumpLogic(reusableQuestionIds[0], 5, localSurvey.endings[0].id),
           ],
           range: 5,
           scale: "number",
@@ -2779,7 +2900,7 @@ const understandPurchaseIntention = (t: TFnType): TTemplate => {
   );
 };
 
-const improveNewsletterContent = (t: TFnType): TTemplate => {
+const improveNewsletterContent = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId()];
   return buildSurvey(
@@ -2794,7 +2915,7 @@ const improveNewsletterContent = (t: TFnType): TTemplate => {
         buildRatingQuestion({
           id: reusableQuestionIds[0],
           logic: [
-            createChoiceJumpLogic(reusableQuestionIds[0], "5", reusableQuestionIds[2]),
+            createChoiceJumpLogic(reusableQuestionIds[0], 5, reusableQuestionIds[2]),
             {
               id: createId(),
               conditions: {
@@ -2847,7 +2968,7 @@ const improveNewsletterContent = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[2],
-          html: t("templates.improve_newsletter_content_question_3_html"),
+          subheader: t("templates.improve_newsletter_content_question_3_html"),
           headline: t("templates.improve_newsletter_content_question_3_headline"),
           required: false,
           buttonUrl: "https://formbricks.com",
@@ -2862,7 +2983,7 @@ const improveNewsletterContent = (t: TFnType): TTemplate => {
   );
 };
 
-const evaluateAProductIdea = (t: TFnType): TTemplate => {
+const evaluateAProductIdea = (t: TFunction): TTemplate => {
   const reusableQuestionIds = [
     createId(),
     createId(),
@@ -2883,7 +3004,7 @@ const evaluateAProductIdea = (t: TFnType): TTemplate => {
       questions: [
         buildCTAQuestion({
           id: reusableQuestionIds[0],
-          html: t("templates.evaluate_a_product_idea_question_1_html"),
+          subheader: t("templates.evaluate_a_product_idea_question_1_html"),
           headline: t("templates.evaluate_a_product_idea_question_1_headline"),
           required: true,
           buttonLabel: t("templates.evaluate_a_product_idea_question_1_button_label"),
@@ -2894,8 +3015,8 @@ const evaluateAProductIdea = (t: TFnType): TTemplate => {
         buildRatingQuestion({
           id: reusableQuestionIds[1],
           logic: [
-            createChoiceJumpLogic(reusableQuestionIds[1], "3", reusableQuestionIds[2]),
-            createChoiceJumpLogic(reusableQuestionIds[1], "4", reusableQuestionIds[3]),
+            createChoiceJumpLogic(reusableQuestionIds[1], 3, reusableQuestionIds[2]),
+            createChoiceJumpLogic(reusableQuestionIds[1], 4, reusableQuestionIds[3]),
           ],
           range: 5,
           scale: "number",
@@ -2916,7 +3037,7 @@ const evaluateAProductIdea = (t: TFnType): TTemplate => {
         }),
         buildCTAQuestion({
           id: reusableQuestionIds[3],
-          html: t("templates.evaluate_a_product_idea_question_4_html"),
+          subheader: t("templates.evaluate_a_product_idea_question_4_html"),
           headline: t("templates.evaluate_a_product_idea_question_4_headline"),
           required: true,
           buttonLabel: t("templates.evaluate_a_product_idea_question_4_button_label"),
@@ -2927,8 +3048,8 @@ const evaluateAProductIdea = (t: TFnType): TTemplate => {
         buildRatingQuestion({
           id: reusableQuestionIds[4],
           logic: [
-            createChoiceJumpLogic(reusableQuestionIds[4], "3", reusableQuestionIds[5]),
-            createChoiceJumpLogic(reusableQuestionIds[4], "4", reusableQuestionIds[6]),
+            createChoiceJumpLogic(reusableQuestionIds[4], 3, reusableQuestionIds[5]),
+            createChoiceJumpLogic(reusableQuestionIds[4], 4, reusableQuestionIds[6]),
           ],
           range: 5,
           scale: "number",
@@ -2971,7 +3092,7 @@ const evaluateAProductIdea = (t: TFnType): TTemplate => {
   );
 };
 
-const understandLowEngagement = (t: TFnType): TTemplate => {
+const understandLowEngagement = (t: TFunction): TTemplate => {
   const localSurvey = getDefaultSurveyPreset(t);
   const reusableQuestionIds = [createId(), createId(), createId(), createId(), createId(), createId()];
 
@@ -3003,6 +3124,7 @@ const understandLowEngagement = (t: TFnType): TTemplate => {
             t("templates.understand_low_engagement_question_1_choice_4"),
             t("templates.understand_low_engagement_question_1_choice_5"),
           ],
+          choiceIds: [reusableOptionIds[0], reusableOptionIds[1], reusableOptionIds[2], reusableOptionIds[3]],
           headline: t("templates.understand_low_engagement_question_1_headline"),
           required: true,
           containsOther: true,
@@ -3060,7 +3182,7 @@ const understandLowEngagement = (t: TFnType): TTemplate => {
   );
 };
 
-const employeeWellBeing = (t: TFnType): TTemplate => {
+const employeeWellBeing = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.employee_well_being_name"),
@@ -3110,7 +3232,7 @@ const employeeWellBeing = (t: TFnType): TTemplate => {
   );
 };
 
-const longTermRetentionCheckIn = (t: TFnType): TTemplate => {
+const longTermRetentionCheckIn = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.long_term_retention_check_in_name"),
@@ -3219,7 +3341,7 @@ const longTermRetentionCheckIn = (t: TFnType): TTemplate => {
   );
 };
 
-const professionalDevelopmentGrowth = (t: TFnType): TTemplate => {
+const professionalDevelopmentGrowth = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.professional_development_growth_survey_name"),
@@ -3269,7 +3391,7 @@ const professionalDevelopmentGrowth = (t: TFnType): TTemplate => {
   );
 };
 
-const recognitionAndReward = (t: TFnType): TTemplate => {
+const recognitionAndReward = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.recognition_and_reward_survey_name"),
@@ -3318,7 +3440,7 @@ const recognitionAndReward = (t: TFnType): TTemplate => {
   );
 };
 
-const alignmentAndEngagement = (t: TFnType): TTemplate => {
+const alignmentAndEngagement = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.alignment_and_engagement_survey_name"),
@@ -3367,7 +3489,7 @@ const alignmentAndEngagement = (t: TFnType): TTemplate => {
   );
 };
 
-const supportiveWorkCulture = (t: TFnType): TTemplate => {
+const supportiveWorkCulture = (t: TFunction): TTemplate => {
   return buildSurvey(
     {
       name: t("templates.supportive_work_culture_survey_name"),
@@ -3417,13 +3539,14 @@ const supportiveWorkCulture = (t: TFnType): TTemplate => {
   );
 };
 
-export const templates = (t: TFnType): TTemplate[] => [
+export const templates = (t: TFunction): TTemplate[] => [
   cartAbandonmentSurvey(t),
   siteAbandonmentSurvey(t),
   productMarketFitSuperhuman(t),
   onboardingSegmentation(t),
   churnSurvey(t),
   earnedAdvocacyScore(t),
+  usabilityScoreRatingSurvey(t),
   improveTrialConversion(t),
   reviewPrompt(t),
   interviewPrompt(t),
@@ -3468,7 +3591,7 @@ export const templates = (t: TFnType): TTemplate[] => [
   careerDevelopmentSurvey(t),
 ];
 
-export const customSurveyTemplate = (t: TFnType): TTemplate => {
+export const customSurveyTemplate = (t: TFunction): TTemplate => {
   return {
     name: t("templates.custom_survey_name"),
     description: t("templates.custom_survey_description"),
@@ -3479,9 +3602,9 @@ export const customSurveyTemplate = (t: TFnType): TTemplate => {
         {
           id: createId(),
           type: TSurveyQuestionTypeEnum.OpenText,
-          headline: { default: t("templates.custom_survey_question_1_headline") },
-          placeholder: { default: t("templates.custom_survey_question_1_placeholder") },
-          buttonLabel: { default: t("templates.next") },
+          headline: createI18nString(t("templates.custom_survey_question_1_headline"), []),
+          placeholder: createI18nString(t("templates.custom_survey_question_1_placeholder"), []),
+          buttonLabel: createI18nString(t("templates.next"), []),
           required: true,
           inputType: "text",
           charLimit: {
@@ -3493,7 +3616,7 @@ export const customSurveyTemplate = (t: TFnType): TTemplate => {
   };
 };
 
-export const previewSurvey = (projectName: string, t: TFnType) => {
+export const previewSurvey = (projectName: string, t: TFunction) => {
   return {
     id: "cltxxaa6x0000g8hacxdxejeu",
     createdAt: new Date(),
@@ -3504,33 +3627,15 @@ export const previewSurvey = (projectName: string, t: TFnType) => {
     createdBy: "cltwumfbz0000echxysz6ptvq",
     status: "inProgress",
     welcomeCard: {
-      html: {
-        default: t("templates.preview_survey_welcome_card_html"),
-      },
+      html: createI18nString(t("templates.preview_survey_welcome_card_html"), []),
       enabled: false,
-      headline: {
-        default: t("templates.preview_survey_welcome_card_headline"),
-      },
+      headline: createI18nString(t("templates.preview_survey_welcome_card_headline"), []),
       timeToFinish: false,
       showResponseCount: false,
     },
     styling: null,
     segment: null,
     questions: [
-      {
-        ...buildRatingQuestion({
-          id: "lbdxozwikh838yc6a8vbwuju",
-          range: 5,
-          scale: "star",
-          headline: t("templates.preview_survey_question_1_headline", { projectName }),
-          required: true,
-          subheader: t("templates.preview_survey_question_1_subheader"),
-          lowerLabel: t("templates.preview_survey_question_1_lower_label"),
-          upperLabel: t("templates.preview_survey_question_1_upper_label"),
-          t,
-        }),
-        isDraft: true,
-      },
       {
         ...buildMultipleChoiceQuestion({
           id: "rjpu42ps6dzirsn9ds6eydgt",
@@ -3548,13 +3653,27 @@ export const previewSurvey = (projectName: string, t: TFnType) => {
         }),
         isDraft: true,
       },
+      {
+        ...buildRatingQuestion({
+          id: "lbdxozwikh838yc6a8vbwuju",
+          range: 5,
+          scale: "star",
+          headline: t("templates.preview_survey_question_1_headline", { projectName }),
+          required: true,
+          subheader: t("templates.preview_survey_question_1_subheader"),
+          lowerLabel: t("templates.preview_survey_question_1_lower_label"),
+          upperLabel: t("templates.preview_survey_question_1_upper_label"),
+          t,
+        }),
+        isDraft: true,
+      },
     ],
     endings: [
       {
         id: "cltyqp5ng000108l9dmxw6nde",
         type: "endScreen",
-        headline: { default: t("templates.preview_survey_ending_card_headline") },
-        subheader: { default: t("templates.preview_survey_ending_card_description") },
+        headline: createI18nString(t("templates.preview_survey_ending_card_headline"), []),
+        subheader: createI18nString(t("templates.preview_survey_ending_card_description"), []),
       },
     ],
     hiddenFields: {
@@ -3566,9 +3685,7 @@ export const previewSurvey = (projectName: string, t: TFnType) => {
     recontactDays: null,
     displayLimit: null,
     autoClose: null,
-    runOnDate: null,
     recaptcha: null,
-    closeOnDate: null,
     delay: 0,
     displayPercentage: null,
     autoComplete: 50,
@@ -3582,11 +3699,11 @@ export const previewSurvey = (projectName: string, t: TFnType) => {
       isEncrypted: true,
     },
     pin: null,
-    resultShareKey: null,
     languages: [],
     triggers: [],
     showLanguageSwitch: false,
     followUps: [],
     isBackButtonHidden: false,
+    metadata: {},
   } as TSurvey;
 };

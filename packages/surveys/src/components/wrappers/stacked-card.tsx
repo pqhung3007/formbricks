@@ -68,7 +68,7 @@ export const StackedCard = ({
             ? `translateY(25%)`
             : `translateY(-${((hovered ? 12 : 10) * offset).toString()}px)`;
         default:
-          return offset < 0 ? `translateX(0)` : `translateX(0)`;
+          return `translateX(0)`;
       }
     };
   }, [cardArrangement, hovered, cardWidth]);
@@ -98,6 +98,7 @@ export const StackedCard = ({
     <div
       ref={(el) => (cardRefs.current[dynamicQuestionIndex] = el)}
       id={`questionCard-${dynamicQuestionIndex}`}
+      data-testid={`questionCard-${dynamicQuestionIndex}`}
       key={dynamicQuestionIndex}
       style={{
         zIndex: 1000 - dynamicQuestionIndex,
@@ -110,7 +111,7 @@ export const StackedCard = ({
         ...straightCardArrangementStyles,
         ...getBottomStyles(),
       }}
-      className="fb-pointer fb-rounded-custom fb-bg-survey-bg fb-absolute fb-inset-x-0 fb-backdrop-blur-md fb-transition-all fb-ease-in-out fb-overflow-hidden">
+      className="fb-pointer fb-rounded-custom fb-bg-survey-bg fb-absolute fb-inset-x-0 fb-transition-all fb-ease-in-out fb-overflow-hidden">
       <div
         style={{
           opacity: contentOpacity,

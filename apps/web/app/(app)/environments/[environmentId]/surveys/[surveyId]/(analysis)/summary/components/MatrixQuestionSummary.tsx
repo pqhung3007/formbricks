@@ -1,7 +1,6 @@
 "use client";
 
-import { TooltipRenderer } from "@/modules/ui/components/tooltip";
-import { useTranslate } from "@tolgee/react";
+import { useTranslation } from "react-i18next";
 import {
   TI18nString,
   TSurvey,
@@ -9,6 +8,7 @@ import {
   TSurveyQuestionSummaryMatrix,
   TSurveyQuestionTypeEnum,
 } from "@formbricks/types/surveys/types";
+import { TooltipRenderer } from "@/modules/ui/components/tooltip";
 import { QuestionSummaryHeader } from "./QuestionSummaryHeader";
 
 interface MatrixQuestionSummaryProps {
@@ -24,7 +24,7 @@ interface MatrixQuestionSummaryProps {
 }
 
 export const MatrixQuestionSummary = ({ questionSummary, survey, setFilter }: MatrixQuestionSummaryProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const getOpacityLevel = (percentage: number): string => {
     const parsedPercentage = percentage;
     const opacity = parsedPercentage * 0.75 + 15;
@@ -52,7 +52,7 @@ export const MatrixQuestionSummary = ({ questionSummary, survey, setFilter }: Ma
         <table className="mx-auto border-collapse cursor-default text-left">
           <thead>
             <tr>
-              <th className="p-4 pt-0 pb-3 font-medium text-slate-400 dark:border-slate-600 dark:text-slate-200"></th>
+              <th className="p-4 pb-3 pt-0 font-medium text-slate-400 dark:border-slate-600 dark:text-slate-200"></th>
               {columns.map((column) => (
                 <th key={column} className="text-center font-medium">
                   <TooltipRenderer tooltipContent={getTooltipContent(column)} shouldRender={true}>
@@ -65,7 +65,7 @@ export const MatrixQuestionSummary = ({ questionSummary, survey, setFilter }: Ma
           <tbody>
             {questionSummary.data.map(({ rowLabel, columnPercentages }, rowIndex) => (
               <tr key={rowLabel}>
-                <td className="max-w-60 overflow-hidden p-4 text-ellipsis whitespace-nowrap">
+                <td className="max-w-60 overflow-hidden text-ellipsis whitespace-nowrap p-4">
                   <TooltipRenderer tooltipContent={getTooltipContent(rowLabel)} shouldRender={true}>
                     <p className="max-w-40 overflow-hidden text-ellipsis whitespace-nowrap">{rowLabel}</p>
                   </TooltipRenderer>

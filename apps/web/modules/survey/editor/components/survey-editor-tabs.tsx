@@ -1,11 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { ProBadge } from "@/modules/ui/components/pro-badge";
-import { useTranslate } from "@tolgee/react";
 import { MailIcon, PaintbrushIcon, Rows3Icon, SettingsIcon } from "lucide-react";
 import { type JSX, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { TSurveyEditorTabs } from "@formbricks/types/surveys/types";
+import { cn } from "@/lib/cn";
+import { ProBadge } from "@/modules/ui/components/pro-badge";
 
 interface Tab {
   id: TSurveyEditorTabs;
@@ -29,7 +29,7 @@ export const SurveyEditorTabs = ({
   isCxMode,
   isSurveyFollowUpsAllowed = false,
 }: SurveyEditorTabsProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const tabsComputed = useMemo(() => {
     const tabs: Tab[] = [
       {
@@ -65,7 +65,7 @@ export const SurveyEditorTabs = ({
   let tabsToDisplay = isCxMode ? tabsComputed.filter((tab) => tab.id !== "settings") : tabsComputed;
 
   return (
-    <div className="fixed z-30 flex h-12 w-full items-center justify-center border-b bg-white md:w-1/2">
+    <div className="fixed z-30 flex h-12 w-full items-center justify-center border-b bg-white md:w-2/3">
       <nav className="flex h-full items-center space-x-4" aria-label="Tabs">
         {tabsToDisplay.map((tab) => (
           <button

@@ -225,7 +225,7 @@
           }
         },
         "summary": "Update Contact (Attributes)",
-        "tags": ["Client API > Contacts"]
+        "tags": ["Client API - Contacts"]
       }
     },
     "/api/v1/client/{environmentId}/displays": {
@@ -423,7 +423,7 @@
           }
         },
         "summary": "Create Display",
-        "tags": ["Client API > Display"]
+        "tags": ["Client API - Display"]
       }
     },
     "/api/v1/client/{environmentId}/displays/{displayId}": {
@@ -627,12 +627,12 @@
           }
         },
         "summary": "Update Display",
-        "tags": ["Client API > Display"]
+        "tags": ["Client API - Display"]
       }
     },
     "/api/v1/client/{environmentId}/environment": {
       "get": {
-        "description": "Retrieves the environment state to be used in Formbricks SDKs",
+        "description": "Retrieves the environment state to be used in Formbricks SDKs **Cache Behavior**: This endpoint uses server-side caching with a **5-minute TTL (Time To Live)**. Any changes to surveys, action classes, project settings, or other environment data will take up to 5 minutes to reflect in the API response. This caching is implemented to improve performance for high-frequency SDK requests.",
         "parameters": [
           {
             "description": "The ID of the environment",
@@ -1045,7 +1045,7 @@
           }
         },
         "summary": "Get Environment State",
-        "tags": ["Client API > Environment"]
+        "tags": ["Client API - Environment"]
       }
     },
     "/api/v1/client/{environmentId}/identify/contacts/{userId}": {
@@ -1219,7 +1219,7 @@
           }
         },
         "summary": "Get Contact State",
-        "tags": ["Client API > Contacts"]
+        "tags": ["Client API - Contacts"]
       }
     },
     "/api/v1/client/{environmentId}/responses": {
@@ -1238,21 +1238,45 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "default": {
+                  "value": {
+                    "data": {
+                      "hs8yd14l9h8u353tjmv6rzaw": "clicked",
+                      "tcgls0063n8ri7dtrbnepcmz": "Who? Who? Who?"
+                    },
+                    "finished": false,
+                    "meta": {
+                      "action": "test action",
+                      "source": "Postman API",
+                      "url": "https://postman.com"
+                    },
+                    "surveyId": "{{surveyId}}",
+                    "userId": "{{userId}}"
+                  }
+                }
+              },
               "schema": {
-                "example": {
-                  "data": {
-                    "hs8yd14l9h8u353tjmv6rzaw": "clicked",
-                    "tcgls0063n8ri7dtrbnepcmz": "Who? Who? Who?"
+                "properties": {
+                  "data": { "additionalProperties": true, "type": "object" },
+                  "finished": { "type": "boolean" },
+                  "language": {
+                    "description": "Language of the response (survey should have this language enabled)",
+                    "enum": ["en", "de", "pt", "etc.."],
+                    "type": "string"
                   },
-                  "finished": false,
                   "meta": {
-                    "action": "test action",
-                    "source": "Postman API",
-                    "url": "https://postman.com"
+                    "properties": {
+                      "action": { "type": "string" },
+                      "source": { "type": "string" },
+                      "url": { "type": "string" }
+                    },
+                    "type": "object"
                   },
-                  "surveyId": "{{surveyId}}",
-                  "userId": "{{userId}} (optional)"
+                  "surveyId": { "type": "string" },
+                  "userId": { "type": "string" }
                 },
+                "required": ["surveyId"],
                 "type": "object"
               }
             }
@@ -1509,7 +1533,7 @@
           }
         },
         "summary": "Create Response",
-        "tags": ["Client API > Response"]
+        "tags": ["Client API - Response"]
       }
     },
     "/api/v1/client/{environmentId}/responses/{responseId}": {
@@ -1711,7 +1735,7 @@
           }
         },
         "summary": "Update Response",
-        "tags": ["Client API > Response"]
+        "tags": ["Client API - Response"]
       }
     },
     "/api/v1/client/{environmentId}/user": {
@@ -2121,7 +2145,7 @@
           }
         },
         "summary": "Create or Identify User",
-        "tags": ["Client API > User"]
+        "tags": ["Client API - User"]
       }
     },
     "/api/v1/management/action-classes": {
@@ -2314,7 +2338,7 @@
           }
         },
         "summary": "Get All Action Classes",
-        "tags": ["Management API > Action Class"]
+        "tags": ["Management API - Action Class"]
       },
       "post": {
         "description": "Create Action Class from the UI or from the API! You can read more about them [here](https://formbricks.com/docs/in-app-surveys/actions).",
@@ -2336,15 +2360,89 @@
                 "example": {
                   "description": "From API Docs (optional)",
                   "environmentId": "{{environmentId}}",
+                  "key": "my-action",
                   "name": "My Action from Postman",
-                  "noCodeConfig": {
-                    "innerHtml": {
-                      "value": "sign-up"
-                    },
-                    "type": "innerHtml"
-                  },
                   "type": "code"
                 },
+                "properties": {
+                  "description": {
+                    "description": "Optional description of the action class",
+                    "type": "string"
+                  },
+                  "environmentId": {
+                    "description": "The environment ID where the action class will be created",
+                    "type": "string"
+                  },
+                  "key": {
+                    "description": "Required when type is 'code'. A unique identifier for the action. Not needed for 'noCode' type.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name of the action class",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "noCodeConfig": {
+                    "description": "Configuration object required when type is 'noCode'. Defines the conditions for triggering the action. Not needed for 'code' type.",
+                    "nullable": true,
+                    "properties": {
+                      "elementSelector": {
+                        "description": "Element selector (required for click type)",
+                        "properties": {
+                          "cssSelector": {
+                            "description": "CSS selector for the element",
+                            "type": "string"
+                          },
+                          "innerHtml": {
+                            "description": "Inner HTML text to match",
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": {
+                        "description": "Type of no-code trigger",
+                        "enum": ["click", "pageView", "exitIntent", "fiftyPercentScroll"],
+                        "type": "string"
+                      },
+                      "urlFilters": {
+                        "items": {
+                          "properties": {
+                            "rule": {
+                              "description": "URL matching rule",
+                              "enum": [
+                                "exactMatch",
+                                "contains",
+                                "startsWith",
+                                "endsWith",
+                                "notMatch",
+                                "notContains",
+                                "matchesRegex"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "description": "URL pattern to match",
+                              "type": "string"
+                            }
+                          },
+                          "required": ["rule", "value"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": ["type", "urlFilters"],
+                    "type": "object"
+                  },
+                  "type": {
+                    "description": "Type of action class",
+                    "enum": ["code", "noCode"],
+                    "type": "string"
+                  }
+                },
+                "required": ["environmentId", "name", "type"],
                 "type": "object"
               }
             }
@@ -2422,8 +2520,11 @@
               "application/json": {
                 "example": {
                   "code": "bad_request",
-                  "details": {},
-                  "message": "Database error when creating an action for environment clurwouax000azffxt7n5unn3"
+                  "details": {
+                    "environmentId": "Required",
+                    "key": "Required"
+                  },
+                  "message": "Fields are missing or incorrectly formatted"
                 },
                 "schema": {
                   "type": "object"
@@ -2472,7 +2573,7 @@
           }
         },
         "summary": "Create Action Class",
-        "tags": ["Management API > Action Class"]
+        "tags": ["Management API - Action Class"]
       }
     },
     "/api/v1/management/action-classes/{actionClassId}": {
@@ -2681,7 +2782,7 @@
           }
         },
         "summary": "Delete Action Class",
-        "tags": ["Management API > Action Class"]
+        "tags": ["Management API - Action Class"]
       },
       "get": {
         "description": "Fetch an Action Class by it's ID",
@@ -2835,7 +2936,7 @@
           }
         },
         "summary": "Get Action Class by ID",
-        "tags": ["Management API > Action Class"]
+        "tags": ["Management API - Action Class"]
       }
     },
     "/api/v1/management/attribute-classes": {
@@ -2973,7 +3074,7 @@
           }
         },
         "summary": "Get All Attribute Classes",
-        "tags": ["Management API > Attribute Class"]
+        "tags": ["Management API - Attribute Class"]
       },
       "post": {
         "description": "Create a new Attribute Class by passing in its type as well as the name! Now just use them in your app and pass this value with a user & it'll be associated with it.",
@@ -2994,9 +3095,28 @@
               "schema": {
                 "example": {
                   "environmentId": "{{environmentId}}",
+                  "key": "my-custom-attribute",
                   "name": "My new Attribute",
-                  "type": "code"
+                  "type": "custom"
                 },
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "environmentId": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": ["custom"]
+                  }
+                },
+                "required": ["environmentId", "key", "name", "type"],
                 "type": "object"
               }
             }
@@ -3013,8 +3133,9 @@
                     "description": null,
                     "environmentId": "clurwouax000azffxt7n5unn3",
                     "id": "clvcapx7v0000xz1zskcgf5k0",
+                    "key": "my-custom-attribute",
                     "name": "My new Attribute",
-                    "type": "code",
+                    "type": "custom",
                     "updatedAt": "2024-04-23T11:21:38.155Z"
                   }
                 },
@@ -3124,7 +3245,7 @@
           }
         },
         "summary": "Create Attribute Class",
-        "tags": ["Management API > Attribute Class"]
+        "tags": ["Management API - Attribute Class"]
       }
     },
     "/api/v1/management/attribute-classes/{attributeClassId}": {
@@ -3333,7 +3454,7 @@
           }
         },
         "summary": "Delete Attribute Class",
-        "tags": ["Management API > Attribute Class"]
+        "tags": ["Management API - Attribute Class"]
       },
       "get": {
         "description": "Fetches an Attribute Class by its ID",
@@ -3546,7 +3667,7 @@
           }
         },
         "summary": "Get Attribute Class by ID",
-        "tags": ["Management API > Attribute Class"]
+        "tags": ["Management API - Attribute Class"]
       }
     },
     "/api/v1/management/contact-attribute-keys": {
@@ -3629,7 +3750,7 @@
           }
         },
         "summary": "Get All Contact Attribute Keys",
-        "tags": ["Management API > Contact Attribute Keys"]
+        "tags": ["Management API - Contact Attribute Keys"]
       }
     },
     "/api/v1/management/contact-attribute-keys/{contactAttributeKeyId}": {
@@ -3780,7 +3901,7 @@
           }
         },
         "summary": "Get Contact Attribute Key by ID",
-        "tags": ["Management API > Contact Attribute Keys"]
+        "tags": ["Management API - Contact Attribute Keys"]
       }
     },
     "/api/v1/management/contact-attributes": {
@@ -3860,7 +3981,7 @@
           }
         },
         "summary": "Get All Contact Attributes",
-        "tags": ["Management API > Contact Attributes"]
+        "tags": ["Management API - Contact Attributes"]
       }
     },
     "/api/v1/management/contacts": {
@@ -3946,7 +4067,7 @@
           }
         },
         "summary": "Get All Contacts",
-        "tags": ["Management API > Contacts"]
+        "tags": ["Management API - Contacts"]
       }
     },
     "/api/v1/management/contacts/{contactId}": {
@@ -4050,7 +4171,7 @@
           }
         },
         "summary": "Get Contact by ID",
-        "tags": ["Management API > Contacts"]
+        "tags": ["Management API - Contacts"]
       }
     },
     "/api/v1/management/me": {
@@ -4072,6 +4193,7 @@
             "content": {
               "application/json": {
                 "example": {
+                  "appSetupCompleted": true,
                   "createdAt": "2024-04-09T04:53:29.577Z",
                   "id": "clurwouax000azffxt7n5unn3",
                   "product": {
@@ -4079,8 +4201,7 @@
                     "name": "My Product"
                   },
                   "type": "production",
-                  "updatedAt": "2024-04-09T14:14:49.256Z",
-                  "widgetSetupCompleted": true
+                  "updatedAt": "2024-04-09T14:14:49.256Z"
                 },
                 "schema": {
                   "type": "object"
@@ -4129,7 +4250,7 @@
           }
         },
         "summary": "Me",
-        "tags": ["Management API > Me"]
+        "tags": ["Management API - Me"]
       }
     },
     "/api/v1/management/people": {
@@ -4256,7 +4377,7 @@
           }
         },
         "summary": "Get All Persons",
-        "tags": ["Management API > People"]
+        "tags": ["Management API - People"]
       }
     },
     "/api/v1/management/people/{personId}": {
@@ -4405,7 +4526,7 @@
           }
         },
         "summary": "Delete Person",
-        "tags": ["Management API > People"]
+        "tags": ["Management API - People"]
       },
       "get": {
         "description": "Get a person by their internal ID on Formbricks. This internal ID can be found from the Get All Person endpoint.",
@@ -4498,7 +4619,7 @@
           }
         },
         "summary": "Get Person by ID",
-        "tags": ["Management API > People"]
+        "tags": ["Management API - People"]
       }
     },
     "/api/v1/management/responses": {
@@ -4515,11 +4636,32 @@
             }
           },
           {
+            "description": "The ID of the survey to fetch responses for",
             "example": "{{surveyId}}",
             "in": "query",
             "name": "surveyId",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "description": "Number of items to return",
+            "example": "{{limit}}",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of items to skip",
+            "example": "{{skip}}",
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
             }
           }
         ],
@@ -4547,7 +4689,6 @@
                         "url": "https://postman.com",
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4581,7 +4722,6 @@
                       "meta": {
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4615,7 +4755,6 @@
                       "meta": {
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4649,7 +4788,6 @@
                       "meta": {
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4683,7 +4821,6 @@
                       "meta": {
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4717,7 +4854,6 @@
                       "meta": {
                         "userAgent": {}
                       },
-                      "notes": [],
                       "person": {
                         "attributes": {
                           "Created From": "API",
@@ -4757,7 +4893,6 @@
                           "os": "Linux"
                         }
                       },
-                      "notes": [],
                       "person": null,
                       "personAttributes": null,
                       "singleUseId": null,
@@ -4786,7 +4921,6 @@
                           "os": "Linux"
                         }
                       },
-                      "notes": [],
                       "person": null,
                       "personAttributes": null,
                       "singleUseId": null,
@@ -4813,7 +4947,6 @@
                           "os": "Linux"
                         }
                       },
-                      "notes": [],
                       "person": null,
                       "personAttributes": null,
                       "singleUseId": null,
@@ -4842,7 +4975,6 @@
                           "os": "Linux"
                         }
                       },
-                      "notes": [],
                       "person": null,
                       "personAttributes": null,
                       "singleUseId": null,
@@ -4867,7 +4999,6 @@
                           "os": "Linux"
                         }
                       },
-                      "notes": [],
                       "person": null,
                       "personAttributes": null,
                       "singleUseId": null,
@@ -4931,10 +5062,10 @@
           }
         },
         "summary": "Get Survey Responses",
-        "tags": ["Management API > Response"]
+        "tags": ["Management API - Response"]
       },
       "post": {
-        "description": "Create a user response using the management API",
+        "description": "Create a user response using the management API. This will trigger the response pipeline, including webhooks, integrations, follow-up emails, and other configured actions.",
         "parameters": [
           {
             "example": "{{apiKey}}",
@@ -4949,17 +5080,52 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "default": {
+                  "value": {
+                    "createdAt": "2024-09-05T08:44:16.051Z",
+                    "data": {
+                      "hg508afs7lgx8nlni5dtit5u": ["Hello World"]
+                    },
+                    "finished": false,
+                    "language": "en",
+                    "surveyId": "clwj7hi7r0000vfhpfze6vjdg",
+                    "updatedAt": "2024-09-05T08:44:16.051Z"
+                  }
+                }
+              },
               "schema": {
-                "example": {
-                  "createdAt": "2024-09-05T08:44:16.051Z",
-                  "data": {
-                    "hg508afs7lgx8nlni5dtit5u": ["Hello World"]
+                "properties": {
+                  "createdAt": {
+                    "description": "Creation timestamp (optional; usually set by server)",
+                    "format": "date-time",
+                    "type": "string"
                   },
-                  "finished": false,
-                  "language": "default",
-                  "surveyId": "clwj7hi7r0000vfhpfze6vjdg",
-                  "updatedAt": "2024-09-05T08:44:16.051Z"
+                  "data": {
+                    "additionalProperties": true,
+                    "description": "Answers keyed by questionId; value shape depends on question type",
+                    "type": "object"
+                  },
+                  "finished": {
+                    "description": "Whether the response is marked as finished",
+                    "type": "boolean"
+                  },
+                  "language": {
+                    "description": "Language of the response (survey should have this language enabled)",
+                    "enum": ["en", "de", "pt", "etc.."],
+                    "type": "string"
+                  },
+                  "surveyId": {
+                    "description": "The ID of the survey this response belongs to",
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "description": "Update timestamp (optional; usually set by server)",
+                    "format": "date-time",
+                    "type": "string"
+                  }
                 },
+                "required": ["surveyId"],
                 "type": "object"
               }
             }
@@ -4986,7 +5152,6 @@
                       "url": "https://postman.com",
                       "userAgent": {}
                     },
-                    "notes": [],
                     "person": {
                       "attributes": {
                         "Created From": "API",
@@ -5119,7 +5284,7 @@
           }
         },
         "summary": "Create Response",
-        "tags": ["Management API > Response"]
+        "tags": ["Management API - Response"]
       }
     },
     "/api/v1/management/responses/{responseId}": {
@@ -5167,7 +5332,6 @@
                       "url": "https://postman.com",
                       "userAgent": {}
                     },
-                    "notes": [],
                     "person": {
                       "attributes": {
                         "Created From": "API",
@@ -5296,7 +5460,7 @@
           }
         },
         "summary": "Delete Response",
-        "tags": ["Management API > Response"]
+        "tags": ["Management API - Response"]
       },
       "get": {
         "description": "Fetch the entire response object based on its ID",
@@ -5342,7 +5506,6 @@
                       "url": "https://postman.com",
                       "userAgent": {}
                     },
-                    "notes": [],
                     "person": {
                       "attributes": {
                         "Created From": "API",
@@ -5471,10 +5634,10 @@
           }
         },
         "summary": "Get Response by ID",
-        "tags": ["Management API > Response"]
+        "tags": ["Management API - Response"]
       },
       "put": {
-        "description": "Update an existing user response with new data",
+        "description": "Update an existing user response with new data. This will trigger the response pipeline, including webhooks, integrations, follow-up emails (if the response is marked as finished), and other configured actions.",
         "parameters": [
           {
             "example": "{{apiKey}}",
@@ -5536,7 +5699,6 @@
                       "url": "https://postman.com",
                       "userAgent": {}
                     },
-                    "notes": [],
                     "person": {
                       "attributes": {
                         "Created From": "API",
@@ -5669,12 +5831,12 @@
           }
         },
         "summary": "Update Response",
-        "tags": ["Management API > Response"]
+        "tags": ["Management API - Response"]
       }
     },
     "/api/v1/management/storage": {
       "post": {
-        "description": "API endpoint for uploading public files. Uploaded files are public and accessible by anyone. This endpoint requires authentication. It accepts a JSON body with fileName, fileType, environmentId, and optionally allowedFileExtensions to restrict file types. On success, it returns a signed URL for uploading the file to S3 along with a local upload URL.",
+        "description": "API endpoint for uploading public files. Uploaded files are public and accessible by anyone. This endpoint requires authentication and enforces a hard limit of 5 MB for all uploads. It accepts a JSON body with fileName, fileType, environmentId, and optionally allowedFileExtensions to restrict file types. On success, it returns a signed URL for uploading the file to S3.",
         "parameters": [
           {
             "example": "{{apiKey}}",
@@ -5700,6 +5862,32 @@
                   "allowedFileExtensions": {
                     "description": "Optional. List of allowed file extensions.",
                     "items": {
+                      "enum": [
+                        "heic",
+                        "png",
+                        "jpeg",
+                        "jpg",
+                        "webp",
+                        "pdf",
+                        "eml",
+                        "doc",
+                        "docx",
+                        "xls",
+                        "xlsx",
+                        "ppt",
+                        "pptx",
+                        "txt",
+                        "csv",
+                        "mp4",
+                        "mov",
+                        "avi",
+                        "mkv",
+                        "webm",
+                        "zip",
+                        "rar",
+                        "7z",
+                        "tar"
+                      ],
                       "type": "string"
                     },
                     "type": "array"
@@ -5731,8 +5919,15 @@
                 "example": {
                   "data": {
                     "fileUrl": "http://localhost:3000/storage/cm1ubebtj000614kqe4hs3c67/public/profile--fid--abc123.png",
-                    "localUrl": "http://localhost:3000/storage/cm1ubebtj000614kqe4hs3c67/public/profile.png",
-                    "signedUrl": "http://localhost:3000/api/v1/client/cm1ubebtj000614kqe4hs3c67/storage/public",
+                    "presignedFields": {
+                      "Policy": "base64EncodedPolicy",
+                      "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+                      "X-Amz-Credential": "your-credential",
+                      "X-Amz-Date": "20250312T000000Z",
+                      "X-Amz-Signature": "your-signature",
+                      "key": "uploads/public/profile--fid--abc123.png"
+                    },
+                    "signedUrl": "https://s3.example.com/your-bucket",
                     "updatedFileName": "profile--fid--abc123.png"
                   }
                 },
@@ -5744,9 +5939,12 @@
                           "description": "URL where the uploaded file can be accessed.",
                           "type": "string"
                         },
-                        "localUrl": {
-                          "description": "URL for uploading the file to local storage.",
-                          "type": "string"
+                        "presignedFields": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Form fields to include in the multipart/form-data POST to S3.",
+                          "type": "object"
                         },
                         "signedUrl": {
                           "description": "Signed URL for uploading the file to S3.",
@@ -5764,7 +5962,7 @@
                 }
               }
             },
-            "description": "OK - Returns the signed URL, updated file name, and file URL."
+            "description": "OK - Returns the signed URL, presigned fields, updated file name, and file URL."
           },
           "400": {
             "content": {
@@ -5825,188 +6023,7 @@
           }
         },
         "summary": "Upload Public File",
-        "tags": ["Management API > Storage"]
-      }
-    },
-    "/api/v1/management/storage/local": {
-      "post": {
-        "description": "Management API endpoint for uploading public files to local storage. This endpoint requires authentication. File metadata is provided via headers (X-File-Type, X-File-Name, X-Environment-ID, X-Signature, X-UUID, X-Timestamp) and the file is provided as a multipart/form-data file field named \"file\". The \"Content-Type\" header must be set to a valid MIME type.",
-        "parameters": [
-          {
-            "example": "{{apiKey}}",
-            "in": "header",
-            "name": "x-api-key",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "MIME type of the file. Must be a valid MIME type.",
-            "in": "header",
-            "name": "X-File-Type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "URI encoded file name.",
-            "in": "header",
-            "name": "X-File-Name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "ID of the environment.",
-            "in": "header",
-            "name": "X-Environment-ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Signature for verifying the request.",
-            "in": "header",
-            "name": "X-Signature",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Unique identifier for the signed upload.",
-            "in": "header",
-            "name": "X-UUID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Timestamp used for the signature.",
-            "in": "header",
-            "name": "X-Timestamp",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "properties": {
-                  "file": {
-                    "description": "The file to be uploaded as a valid file object (buffer).",
-                    "format": "binary",
-                    "type": "string"
-                  }
-                },
-                "required": ["file"],
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "data": {
-                    "message": "File uploaded successfully"
-                  }
-                },
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "properties": {
-                        "message": {
-                          "description": "Success message.",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "OK - File uploaded successfully."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "fileType is required"
-                },
-                "schema": {
-                  "properties": {
-                    "error": {
-                      "description": "Detailed error message.",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request - Missing required fields, invalid header values, or file issues."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "Not authenticated"
-                },
-                "schema": {
-                  "properties": {
-                    "error": {
-                      "description": "Detailed error message.",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication failed, invalid signature, or user not authorized."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "File upload failed"
-                },
-                "schema": {
-                  "properties": {
-                    "error": {
-                      "description": "Detailed error message.",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error - File upload failed due to server error."
-          }
-        },
-        "servers": [
-          {
-            "description": "Formbricks API Server",
-            "url": "https://app.formbricks.com/api/v1"
-          }
-        ],
-        "summary": "Upload Public File to Local Storage",
-        "tags": ["Management API > Storage"]
+        "tags": ["Management API - Storage"]
       }
     },
     "/api/v1/management/surveys": {
@@ -6032,7 +6049,6 @@
                     {
                       "autoClose": null,
                       "autoComplete": null,
-                      "closeOnDate": null,
                       "createdAt": "2024-08-05T11:08:27.042Z",
                       "createdBy": "clfv1zvij0000ru0gunwpy43a",
                       "delay": 0,
@@ -6087,19 +6103,19 @@
                             {
                               "id": "xpoxuu3sifk1ee8he67ctf5i",
                               "label": {
-                                "default": "Sun ☀️"
+                                "default": "Sun \u2600\ufe0f"
                               }
                             },
                             {
                               "id": "hnsovcdmxtcbly6tig1az3qc",
                               "label": {
-                                "default": "Ocean 🌊"
+                                "default": "Ocean \ud83c\udf0a"
                               }
                             },
                             {
                               "id": "kcnelzdxknvwo8fq20d3nrr5",
                               "label": {
-                                "default": "Palms 🌴"
+                                "default": "Palms \ud83c\udf34"
                               }
                             }
                           ],
@@ -6114,8 +6130,6 @@
                       ],
                       "recontactDays": null,
                       "redirectUrl": null,
-                      "resultShareKey": null,
-                      "runOnDate": null,
                       "segment": null,
                       "showLanguageSwitch": null,
                       "singleUse": {
@@ -6196,7 +6210,7 @@
           }
         },
         "summary": "Get All Surveys",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       },
       "post": {
         "description": "Create a survey with granular settings, questions, their types, welcomeCard, thankYouCard, languages, etc right from this API. We'd however recommend you to do this via our Formbricks App with the UI for a better visual experience.",
@@ -6214,116 +6228,153 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": {
-                "example": {
-                  "autoClose": null,
-                  "autoComplete": null,
-                  "closeOnDate": null,
-                  "createdBy": null,
-                  "delay": 0,
-                  "displayLimit": null,
-                  "displayOption": "displayOnce",
-                  "displayPercentage": null,
-                  "endings": [
-                    {
-                      "buttonLabel": {
-                        "default": "Create your own Survey"
+              "examples": {
+                "default": {
+                  "value": {
+                    "autoClose": null,
+                    "autoComplete": null,
+                    "createdBy": null,
+                    "delay": 0,
+                    "displayLimit": null,
+                    "displayOption": "displayOnce",
+                    "displayPercentage": null,
+                    "endings": [
+                      {
+                        "buttonLabel": { "default": "Create your own Survey" },
+                        "buttonLink": "https://formbricks.com/signup",
+                        "headline": { "default": "Thank you!" },
+                        "id": "p73t62dgwq0cvmtt6ug0hmfc",
+                        "subheader": { "default": "We appreciate your feedback." },
+                        "type": "endScreen"
+                      }
+                    ],
+                    "environmentId": "{{environmentId}}",
+                    "hiddenFields": { "enabled": false, "fieldIds": [] },
+                    "isVerifyEmailEnabled": false,
+                    "languages": [],
+                    "name": "Example Survey",
+                    "pin": null,
+                    "productOverwrites": null,
+                    "questions": [
+                      {
+                        "headline": { "default": "What would you like to know?" },
+                        "id": "ovpy6va1hab7fl12n913zua0",
+                        "inputType": "text",
+                        "placeholder": { "default": "Type your answer here..." },
+                        "required": true,
+                        "subheader": { "default": "This is an example survey." },
+                        "type": "openText"
                       },
-                      "buttonLink": "https://formbricks.com/signup",
-                      "headline": {
-                        "default": "Thank you!"
+                      {
+                        "choices": [
+                          { "id": "xpoxuu3sifk1ee8he67ctf5i", "label": { "default": "Sun \u2600\ufe0f" } },
+                          { "id": "hnsovcdmxtcbly6tig1az3qc", "label": { "default": "Ocean \ud83c\udf0a" } },
+                          { "id": "kcnelzdxknvwo8fq20d3nrr5", "label": { "default": "Palms \ud83c\udf34" } }
+                        ],
+                        "headline": { "default": "What's important on vacay?" },
+                        "id": "awkn2llljy7a4oulp5t15yec",
+                        "required": true,
+                        "shuffleOption": "none",
+                        "type": "multipleChoiceMulti"
+                      }
+                    ],
+                    "recontactDays": null,
+                    "redirectUrl": null,
+                    "segmentId": null,
+                    "showLanguageSwitch": null,
+                    "singleUse": { "enabled": false, "isEncrypted": true },
+                    "status": "inProgress",
+                    "styling": null,
+                    "surveyClosedMessage": null,
+                    "triggers": [],
+                    "type": "link",
+                    "welcomeCard": {
+                      "enabled": true,
+                      "fileUrl": "",
+                      "headline": { "default": "Welcome!" },
+                      "html": {
+                        "default": "<p class=\"fb-editor-paragraph\" dir=\"ltr\"><span style=\"white-space: pre-wrap;\">Thanks for providing your feedback - let's go!</span></p>"
                       },
-                      "id": "p73t62dgwq0cvmtt6ug0hmfc",
-                      "subheader": {
-                        "default": "We appreciate your feedback."
-                      },
-                      "type": "endScreen"
+                      "showResponseCount": false,
+                      "timeToFinish": false
                     }
-                  ],
-                  "environmentId": "{{environmentId}}",
-                  "hiddenFields": {
-                    "enabled": false,
-                    "fieldIds": []
-                  },
-                  "isVerifyEmailEnabled": false,
-                  "languages": [],
-                  "name": "Example Survey",
-                  "pin": null,
-                  "productOverwrites": null,
-                  "questions": [
-                    {
-                      "headline": {
-                        "default": "What would you like to know?"
-                      },
-                      "id": "ovpy6va1hab7fl12n913zua0",
-                      "inputType": "text",
-                      "placeholder": {
-                        "default": "Type your answer here..."
-                      },
-                      "required": true,
-                      "subheader": {
-                        "default": "This is an example survey."
-                      },
-                      "type": "openText"
-                    },
-                    {
-                      "choices": [
-                        {
-                          "id": "xpoxuu3sifk1ee8he67ctf5i",
-                          "label": {
-                            "default": "Sun ☀️"
-                          }
-                        },
-                        {
-                          "id": "hnsovcdmxtcbly6tig1az3qc",
-                          "label": {
-                            "default": "Ocean 🌊"
-                          }
-                        },
-                        {
-                          "id": "kcnelzdxknvwo8fq20d3nrr5",
-                          "label": {
-                            "default": "Palms 🌴"
-                          }
-                        }
-                      ],
-                      "headline": {
-                        "default": "What's important on vacay?"
-                      },
-                      "id": "awkn2llljy7a4oulp5t15yec",
-                      "required": true,
-                      "shuffleOption": "none",
-                      "type": "multipleChoiceMulti"
-                    }
-                  ],
-                  "recontactDays": null,
-                  "redirectUrl": null,
-                  "resultShareKey": null,
-                  "runOnDate": null,
-                  "segmentId": null,
-                  "showLanguageSwitch": null,
-                  "singleUse": {
-                    "enabled": false,
-                    "isEncrypted": true
-                  },
-                  "status": "inProgress",
-                  "styling": null,
-                  "surveyClosedMessage": null,
-                  "triggers": [],
-                  "type": "link",
-                  "welcomeCard": {
-                    "enabled": true,
-                    "fileUrl": "",
-                    "headline": {
-                      "default": "Welcome!"
-                    },
-                    "html": {
-                      "default": "<p class=\"fb-editor-paragraph\" dir=\"ltr\"><span style=\"white-space: pre-wrap;\">Thanks for providing your feedback - let's go!</span></p>"
-                    },
-                    "showResponseCount": false,
-                    "timeToFinish": false
                   }
+                }
+              },
+              "schema": {
+                "properties": {
+                  "displayOption": {
+                    "enum": ["displayOnce", "displayMultiple", "respondMultiple", "displaySome"],
+                    "type": "string"
+                  },
+                  "environmentId": { "type": "string" },
+                  "languages": {
+                    "items": {
+                      "properties": {
+                        "default": { "type": "boolean" },
+                        "enabled": { "type": "boolean" },
+                        "language": {
+                          "description": "Language of the survey (This language should exist in your environment)",
+                          "enum": ["en", "de", "pt", "etc.."],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "name": { "type": "string" },
+                  "questions": {
+                    "items": {
+                      "properties": {
+                        "date": {
+                          "properties": {
+                            "format": { "enum": ["M-d-y", "d-M-y", "y-M-d"], "type": "string" }
+                          },
+                          "type": "object"
+                        },
+                        "id": { "type": "string" },
+                        "inputType": {
+                          "enum": ["text", "email", "url", "number", "phone"],
+                          "type": "string"
+                        },
+                        "rating": {
+                          "properties": {
+                            "range": { "enum": [3, 4, 5, 6, 7, 10], "type": "integer" },
+                            "scale": { "enum": ["number", "smiley", "star"], "type": "string" }
+                          },
+                          "type": "object"
+                        },
+                        "shuffleOption": { "enum": ["none", "all", "exceptLast"], "type": "string" },
+                        "type": {
+                          "enum": [
+                            "address",
+                            "cta",
+                            "consent",
+                            "date",
+                            "fileUpload",
+                            "matrix",
+                            "multipleChoiceMulti",
+                            "multipleChoiceSingle",
+                            "nps",
+                            "openText",
+                            "pictureSelection",
+                            "rating",
+                            "cal",
+                            "ranking",
+                            "contactInfo"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "status": { "enum": ["draft", "inProgress", "paused", "completed"], "type": "string" },
+                  "type": { "enum": ["link", "app"], "type": "string" }
                 },
+                "required": ["environmentId", "name", "type", "status"],
                 "type": "object"
               }
             }
@@ -6337,7 +6388,6 @@
                   "data": {
                     "autoClose": null,
                     "autoComplete": null,
-                    "closeOnDate": null,
                     "createdAt": "2024-08-05T11:08:27.042Z",
                     "createdBy": "clfv1zvij0000ru0gunwpy43a",
                     "delay": 0,
@@ -6392,19 +6442,19 @@
                           {
                             "id": "xpoxuu3sifk1ee8he67ctf5i",
                             "label": {
-                              "default": "Sun ☀️"
+                              "default": "Sun \u2600\ufe0f"
                             }
                           },
                           {
                             "id": "hnsovcdmxtcbly6tig1az3qc",
                             "label": {
-                              "default": "Ocean 🌊"
+                              "default": "Ocean \ud83c\udf0a"
                             }
                           },
                           {
                             "id": "kcnelzdxknvwo8fq20d3nrr5",
                             "label": {
-                              "default": "Palms 🌴"
+                              "default": "Palms \ud83c\udf34"
                             }
                           }
                         ],
@@ -6419,8 +6469,6 @@
                     ],
                     "recontactDays": null,
                     "redirectUrl": null,
-                    "resultShareKey": null,
-                    "runOnDate": null,
                     "segment": null,
                     "showLanguageSwitch": null,
                     "singleUse": {
@@ -6573,7 +6621,7 @@
           }
         },
         "summary": "Create Survey",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       }
     },
     "/api/v1/management/surveys/{surveyId}": {
@@ -6606,7 +6654,6 @@
                   "data": {
                     "autoClose": null,
                     "autoComplete": null,
-                    "closeOnDate": null,
                     "createdAt": "2024-08-05T11:08:27.042Z",
                     "createdBy": "clfv1zvij0000ru0gunwpy43a",
                     "delay": 0,
@@ -6661,19 +6708,19 @@
                           {
                             "id": "xpoxuu3sifk1ee8he67ctf5i",
                             "label": {
-                              "default": "Sun ☀️"
+                              "default": "Sun \u2600\ufe0f"
                             }
                           },
                           {
                             "id": "hnsovcdmxtcbly6tig1az3qc",
                             "label": {
-                              "default": "Ocean 🌊"
+                              "default": "Ocean \ud83c\udf0a"
                             }
                           },
                           {
                             "id": "kcnelzdxknvwo8fq20d3nrr5",
                             "label": {
-                              "default": "Palms 🌴"
+                              "default": "Palms \ud83c\udf34"
                             }
                           }
                         ],
@@ -6688,8 +6735,6 @@
                     ],
                     "recontactDays": null,
                     "redirectUrl": null,
-                    "resultShareKey": null,
-                    "runOnDate": null,
                     "segment": null,
                     "showLanguageSwitch": null,
                     "singleUse": {
@@ -6831,7 +6876,7 @@
           }
         },
         "summary": "Delete Survey",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       },
       "get": {
         "description": "Fetch a survey object based on its ID",
@@ -6862,7 +6907,6 @@
                   "data": {
                     "autoClose": null,
                     "autoComplete": null,
-                    "closeOnDate": null,
                     "createdAt": "2024-08-05T11:08:27.042Z",
                     "createdBy": "clfv1zvij0000ru0gunwpy43a",
                     "delay": 0,
@@ -6917,19 +6961,19 @@
                           {
                             "id": "xpoxuu3sifk1ee8he67ctf5i",
                             "label": {
-                              "default": "Sun ☀️"
+                              "default": "Sun \u2600\ufe0f"
                             }
                           },
                           {
                             "id": "hnsovcdmxtcbly6tig1az3qc",
                             "label": {
-                              "default": "Ocean 🌊"
+                              "default": "Ocean \ud83c\udf0a"
                             }
                           },
                           {
                             "id": "kcnelzdxknvwo8fq20d3nrr5",
                             "label": {
-                              "default": "Palms 🌴"
+                              "default": "Palms \ud83c\udf34"
                             }
                           }
                         ],
@@ -6944,8 +6988,6 @@
                     ],
                     "recontactDays": null,
                     "redirectUrl": null,
-                    "resultShareKey": null,
-                    "runOnDate": null,
                     "segment": null,
                     "showLanguageSwitch": null,
                     "singleUse": {
@@ -7025,7 +7067,7 @@
           }
         },
         "summary": "Get Survey by ID",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       },
       "put": {
         "description": "Update an existing survey with new properties. This is also what we'd recommend you to do from the UI for a better visual feedback.",
@@ -7068,7 +7110,6 @@
                   "data": {
                     "autoClose": null,
                     "autoComplete": null,
-                    "closeOnDate": null,
                     "createdAt": "2024-08-05T11:08:27.042Z",
                     "createdBy": "clfv1zvij0000ru0gunwpy43a",
                     "delay": 0,
@@ -7123,19 +7164,19 @@
                           {
                             "id": "xpoxuu3sifk1ee8he67ctf5i",
                             "label": {
-                              "default": "Sun ☀️"
+                              "default": "Sun \u2600\ufe0f"
                             }
                           },
                           {
                             "id": "hnsovcdmxtcbly6tig1az3qc",
                             "label": {
-                              "default": "Ocean 🌊"
+                              "default": "Ocean \ud83c\udf0a"
                             }
                           },
                           {
                             "id": "kcnelzdxknvwo8fq20d3nrr5",
                             "label": {
-                              "default": "Palms 🌴"
+                              "default": "Palms \ud83c\udf34"
                             }
                           }
                         ],
@@ -7150,8 +7191,6 @@
                     ],
                     "recontactDays": null,
                     "redirectUrl": null,
-                    "resultShareKey": null,
-                    "runOnDate": null,
                     "segment": null,
                     "showLanguageSwitch": null,
                     "singleUse": {
@@ -7284,7 +7323,7 @@
           }
         },
         "summary": "Update Survey",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       }
     },
     "/api/v1/management/surveys/{surveyId}/singleUseIds": {
@@ -7466,7 +7505,7 @@
           }
         },
         "summary": "Get SingleUse Links",
-        "tags": ["Management API > Survey"]
+        "tags": ["Management API - Survey"]
       }
     },
     "/api/v1/webhooks": {
@@ -7571,7 +7610,7 @@
           }
         },
         "summary": "Get All Webhooks",
-        "tags": ["Management API > Webhook"]
+        "tags": ["Management API - Webhook"]
       },
       "post": {
         "description": "Create a new webhook right from the API and see it active right away!",
@@ -7589,11 +7628,41 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "default": {
+                  "value": {
+                    "triggers": ["responseCreated", "responseUpdated", "responseFinished"],
+                    "url": "https://eoy8o887lmsqmhz.m.pipedream.net"
+                  }
+                }
+              },
               "schema": {
-                "example": {
-                  "triggers": ["responseCreated", "responseUpdated", "responseFinished"],
-                  "url": "https://eoy8o887lmsqmhz.m.pipedream.net"
+                "properties": {
+                  "name": {
+                    "description": "Optional name for the webhook",
+                    "type": "string"
+                  },
+                  "surveyIds": {
+                    "description": "Optional list of survey IDs to filter webhook calls",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "triggers": {
+                    "description": "List of events that trigger this webhook",
+                    "items": {
+                      "enum": ["responseCreated", "responseUpdated", "responseFinished"],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "url": {
+                    "description": "The webhook URL to call when triggers are fired",
+                    "type": "string"
+                  }
                 },
+                "required": ["url", "triggers"],
                 "type": "object"
               }
             }
@@ -7669,7 +7738,7 @@
           }
         },
         "summary": "Create Webhook",
-        "tags": ["Management API > Webhook"]
+        "tags": ["Management API - Webhook"]
       }
     },
     "/api/v1/webhooks/{webhookId}": {
@@ -7826,7 +7895,7 @@
           }
         },
         "summary": "Delete Webhook",
-        "tags": ["Management API > Webhook"]
+        "tags": ["Management API - Webhook"]
       },
       "get": {
         "description": "Get a specific webhook object based on its ID",
@@ -7919,7 +7988,7 @@
           }
         },
         "summary": "Get Webhook",
-        "tags": ["Management API > Webhook"]
+        "tags": ["Management API - Webhook"]
       }
     },
     "/health": {
@@ -8068,7 +8137,7 @@
   },
   "servers": [
     {
-      "url": "http://{{baseurl}}",
+      "url": "https://{baseurl}",
       "variables": {
         "baseurl": {
           "default": "localhost:3000"
@@ -8083,23 +8152,23 @@
     },
     {
       "description": "Displays are metrics used to measure the number of times a survey was viewed both by unidentified or identified users.",
-      "name": "Client API > Display"
+      "name": "Client API - Display"
     },
     {
       "description": "Responses are captured whenever a user fills in your survey either partially or completely.",
-      "name": "Client API > Response"
+      "name": "Client API - Response"
     },
     {
       "description": "Get the environment state to be used in Formbricks SDKs",
-      "name": "Client API > Environment"
+      "name": "Client API - Environment"
     },
     {
       "description": "Contacts are the identified users on Formbricks app that get initated when you pass a userId and have user activation enabled. This now allows you to track & show them targeted surveys based on their attributes, device type, etc.",
-      "name": "Client API > Contacts"
+      "name": "Client API - Contacts"
     },
     {
       "description": "Users are the identified users on Formbricks app that get initated when you pass a userId and have user activation enabled. This now allows you to track & show them targeted surveys based on their attributes, device type, etc. Currently, this api is only being used in the react-native sdk.",
-      "name": "Client API > User"
+      "name": "Client API - User"
     },
     {
       "description": "The Management API provides access to all data and settings that are visible in the Formbricks App. This API requires a personal API Key for authentication, which can be generated in the Settings section of the Formbricks App. With the Management API, you can manage your Formbricks account programmatically, accessing and modifying data and settings as needed.\n\n> **For Auth:** we use the `x-api-key` header \n  \n\nAPI requests made to the Management API are authorized using a personal API key. This key grants the same rights and access as if you were logged in at formbricks.com. It's essential to keep your API key secure and not share it with others.\n\nTo generate, store, or delete an API key, follow the instructions provided on the following page [API Key](https://formbricks.com/docs/api/management/api-key-setup).",
@@ -8107,43 +8176,43 @@
     },
     {
       "description": "Action Classes allow you to set behaviour methods such as when a user clicks on a buy now button, or when a user leaves the page, etc. These allow you to trigger specific surveys to these users.\n\nMethods: Get All, Get, Create, Update, and Delete Action Classes",
-      "name": "Management API > Action Class"
+      "name": "Management API - Action Class"
     },
     {
       "description": "Attribute Classes help you categorize attributes so that you can target users based on specific values of their attributes. They are associated with a Person. Read more [here](https://formbricks.com/docs/in-app-surveys/attributes)",
-      "name": "Management API > Attribute Class"
+      "name": "Management API - Attribute Class"
     },
     {
       "description": "The Contacts API allows you to retrieve information about contacts in your environment. Contacts represent users who have interacted with your surveys or forms.",
-      "name": "Management API > Contacts"
+      "name": "Management API - Contacts"
     },
     {
       "description": "The Contact Attributes API allows you to retrieve information about attributes associated with contacts in your environment. These attributes can include custom properties and values assigned to your contacts.",
-      "name": "Management API > Contact Attributes"
+      "name": "Management API - Contact Attributes"
     },
     {
       "description": "The Contact Attribute Keys API allows you to retrieve information about the defined attribute keys in your environment. These keys define the structure and properties that can be assigned to contacts, such as email, name, or custom attributes.",
-      "name": "Management API > Contact Attribute Keys"
+      "name": "Management API - Contact Attribute Keys"
     },
     {
       "description": "Retrieve Account Information",
-      "name": "Management API > Me"
+      "name": "Management API - Me"
     },
     {
       "description": "Enable User Identification in Formbricks to granularly target users to show surveys to without spraying across them. This API will help you utilise Formbricks User Identification to its maximum.\n\nMethods: Get All, Get, and Delete Persons",
-      "name": "Management API > People"
+      "name": "Management API - People"
     },
     {
       "description": "Responses are what your users fill in as answers to a survey. Use this cautiosly and make sure you handle this data carefully.\n\nMethods allowed: Get All, Get by Survey, Get, Update, and Delete Responses",
-      "name": "Management API > Response"
+      "name": "Management API - Response"
     },
     {
       "description": "Surveys are the core of user data & feedback collection. We have various types of surveys to cater to you:\n\n- In-App Surveys\n    \n- Website Surveys\n    \n- Link Surveys\n    \n\nCreate surveys & then trigger them as per your actions & attribute filterings that you have set to make the most of them.\n\nMethods allowed: Get All, Get, Create, Update, and Delete Surveys",
-      "name": "Management API > Survey"
+      "name": "Management API - Survey"
     },
     {
       "description": "Formbricks' Webhook API offers a powerful interface for interacting with webhooks. Webhooks allow you to receive real-time HTTP notifications of changes to specific objects in the Formbricks environment.\n\nThe behavior of the webhooks is determined by their trigger settings. The trigger determines which updates the webhook sends. Current available triggers include:\n\n- \"responseCreated\"\n    \n- \"responseUpdated\", and\n    \n- \"responseFinished\".\n    \n\nThese APIs are designed to facilitate seamless integration of Formbricks with third-party systems. By making use of our webhook API, you can automate the process of sending data to these systems whenever significant events occur within your Formbricks environment.\n\n  \n\nMethods allowed: Get All, Get ,Create, and Delete Webhooks",
-      "name": "Management API > Webhook"
+      "name": "Management API - Webhook"
     }
   ]
 }

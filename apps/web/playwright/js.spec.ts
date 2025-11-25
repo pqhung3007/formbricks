@@ -87,8 +87,8 @@ test.describe("JS Package Test", async () => {
     await page.getByRole("button", { name: "Create action" }).click();
 
     await page.locator("#recontactOptionsCardTrigger").click();
-    await page.locator("label").filter({ hasText: "Keep showing while conditions" }).click();
-    await page.locator("#recontactDays").check();
+    await page.locator('[data-testid="recontact-option-respondMultiple"]').click();
+    await page.locator('[data-testid="waiting-time-option-ignore"]').click();
 
     await page.getByRole("button", { name: "Publish" }).click();
 
@@ -132,18 +132,17 @@ test.describe("JS Package Test", async () => {
     await page.waitForURL(/\/environments\/[^/]+\/surveys/);
     await page.getByRole("link", { name: "product Market Fit (Superhuman)" }).click();
     await page.waitForSelector("text=Responses");
-    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(5000);
 
     const impressionsCount = await page.getByRole("button", { name: "Impressions" }).innerText();
     expect(impressionsCount).toEqual("Impressions\n\n1");
 
-    await expect(page.getByRole("link", { name: "Responses (1)" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Responses" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Completed 100%" })).toBeVisible();
     await expect(page.getByText("1 Responses", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("CTR100%")).toBeVisible();
-    await expect(page.getByText("Somewhat disappointed100%")).toBeVisible();
-    await expect(page.getByText("Founder100%")).toBeVisible();
+    await expect(page.getByText("Somewhat disappointed")).toBeVisible();
+    await expect(page.getByText("Founder")).toBeVisible();
     await expect(page.getByText("People who believe that PMF").first()).toBeVisible();
     await expect(page.getByText("Much higher response rates!").first()).toBeVisible();
     await expect(page.getByText("Make this end to end test").first()).toBeVisible();

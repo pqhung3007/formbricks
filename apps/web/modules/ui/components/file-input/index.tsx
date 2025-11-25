@@ -1,17 +1,19 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { LoadingSpinner } from "@/modules/ui/components/loading-spinner";
-import { OptionsSwitch } from "@/modules/ui/components/options-switch";
-import { useTranslate } from "@tolgee/react";
 import { FileIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { TAllowedFileExtension } from "@formbricks/types/common";
+import { useTranslation } from "react-i18next";
+import { TAllowedFileExtension } from "@formbricks/types/storage";
+import { cn } from "@/lib/cn";
+import { FileUploadError, handleFileUpload } from "@/modules/storage/file-upload";
+import { LoadingSpinner } from "@/modules/ui/components/loading-spinner";
+import { OptionsSwitch } from "@/modules/ui/components/options-switch";
+import { showStorageNotConfiguredToast } from "@/modules/ui/components/storage-not-configured-toast/lib/utils";
 import { Uploader } from "./components/uploader";
 import { VideoSettings } from "./components/video-settings";
-import { getAllowedFiles, uploadFile } from "./lib/utils";
+import { getAllowedFiles } from "./lib/utils";
 
 const allowedFileTypesForPreview = ["png", "jpeg", "jpg", "webp"];
 const isImage = (name: string) => {
@@ -21,7 +23,7 @@ const isImage = (name: string) => {
 interface FileInputProps {
   id: string;
   allowedFileExtensions: TAllowedFileExtension[];
-  environmentId: string | undefined;
+  environmentId: string;
   onFileUpload: (uploadedUrl: string[] | undefined, fileType: "image" | "video") => void;
   fileUrl?: string | string[];
   videoUrl?: string;
@@ -30,12 +32,13 @@ interface FileInputProps {
   maxSizeInMB?: number;
   isVideoAllowed?: boolean;
   disabled?: boolean;
+  isStorageConfigured: boolean;
 }
 
 interface SelectedFile {
   url: string;
   name: string;
-  uploaded: Boolean;
+  uploaded: boolean;
 }
 
 export const FileInput = ({
@@ -50,8 +53,9 @@ export const FileInput = ({
   maxSizeInMB,
   isVideoAllowed = false,
   disabled = false,
+  isStorageConfigured = true,
 }: FileInputProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const options = [
     { value: "image", label: t("common.image") },
     { value: "video", label: t("common.video") },
@@ -63,6 +67,11 @@ export const FileInput = ({
   const [videoUrlTemp, setVideoUrlTemp] = useState(videoUrl ?? "");
 
   const handleUpload = async (files: File[]) => {
+    if (!isStorageConfigured) {
+      showStorageNotConfiguredToast();
+      return;
+    }
+
     if (!multiple && files.length > 1) {
       files = [files[0]];
       toast.error(t("common.only_one_file_allowed"));
@@ -78,15 +87,15 @@ export const FileInput = ({
       allowedFiles.map((file) => ({ url: URL.createObjectURL(file), name: file.name, uploaded: false }))
     );
 
-    const uploadedFiles = await Promise.allSettled(
-      allowedFiles.map((file) => uploadFile(file, allowedFileExtensions, environmentId))
+    const uploadedFiles = await Promise.all(
+      allowedFiles.map((file) => handleFileUpload(file, environmentId, allowedFileExtensions))
     );
 
-    if (
-      uploadedFiles.length < allowedFiles.length ||
-      uploadedFiles.some((file) => file.status === "rejected")
-    ) {
-      if (uploadedFiles.length === 0) {
+    if (uploadedFiles.length < allowedFiles.length || uploadedFiles.some((file) => file.error)) {
+      const firstError = uploadedFiles.find((f) => f.error)?.error;
+      if (firstError === FileUploadError.INVALID_FILE_NAME) {
+        toast.error(t("common.invalid_file_name"));
+      } else if (uploadedFiles.length === 0) {
         toast.error(t("common.no_files_uploaded"));
       } else {
         toast.error(t("common.some_files_failed_to_upload"));
@@ -95,8 +104,8 @@ export const FileInput = ({
 
     const uploadedUrls: string[] = [];
     uploadedFiles.forEach((file) => {
-      if (file.status === "fulfilled") {
-        uploadedUrls.push(encodeURI(file.value.url));
+      if (file.url) {
+        uploadedUrls.push(encodeURI(file.url));
       }
     });
 
@@ -137,6 +146,11 @@ export const FileInput = ({
   };
 
   const handleUploadMore = async (files: File[]) => {
+    if (!isStorageConfigured) {
+      showStorageNotConfiguredToast();
+      return;
+    }
+
     const allowedFiles = await getAllowedFiles(files, allowedFileExtensions, maxSizeInMB);
     if (allowedFiles.length === 0) {
       return;
@@ -147,15 +161,15 @@ export const FileInput = ({
       ...allowedFiles.map((file) => ({ url: URL.createObjectURL(file), name: file.name, uploaded: false })),
     ]);
 
-    const uploadedFiles = await Promise.allSettled(
-      allowedFiles.map((file) => uploadFile(file, allowedFileExtensions, environmentId))
+    const uploadedFiles = await Promise.all(
+      allowedFiles.map((file) => handleFileUpload(file, environmentId, allowedFileExtensions))
     );
 
-    if (
-      uploadedFiles.length < allowedFiles.length ||
-      uploadedFiles.some((file) => file.status === "rejected")
-    ) {
-      if (uploadedFiles.length === 0) {
+    if (uploadedFiles.length < allowedFiles.length || uploadedFiles.some((file) => file.error)) {
+      const firstError = uploadedFiles.find((f) => f.error)?.error;
+      if (firstError === FileUploadError.INVALID_FILE_NAME) {
+        toast.error(t("common.invalid_file_name"));
+      } else if (uploadedFiles.length === 0) {
         toast.error(t("common.no_files_uploaded"));
       } else {
         toast.error(t("common.some_files_failed_to_upload"));
@@ -164,8 +178,8 @@ export const FileInput = ({
 
     const uploadedUrls: string[] = [];
     uploadedFiles.forEach((file) => {
-      if (file.status === "fulfilled") {
-        uploadedUrls.push(encodeURI(file.value.url));
+      if (file.url) {
+        uploadedUrls.push(encodeURI(file.url));
       }
     });
 
@@ -241,11 +255,14 @@ export const FileInput = ({
                               className={!file.uploaded ? "opacity-50" : ""}
                             />
                             {file.uploaded ? (
-                              <div
-                                className="absolute top-2 right-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
-                                onClick={() => handleRemove(idx)}>
+                              <button
+                                className="absolute right-2 top-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleRemove(idx);
+                                }}>
                                 <XIcon className="h-5 text-slate-700 hover:text-slate-900" />
-                              </div>
+                              </button>
                             ) : (
                               <LoadingSpinner />
                             )}
@@ -259,11 +276,14 @@ export const FileInput = ({
                               <span className="font-semibold">{file.name}</span>
                             </p>
                             {file.uploaded ? (
-                              <div
-                                className="absolute top-2 right-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
-                                onClick={() => handleRemove(idx)}>
+                              <button
+                                className="absolute right-2 top-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleRemove(idx);
+                                }}>
                                 <XIcon className="h-5 text-slate-700 hover:text-slate-900" />
-                              </div>
+                              </button>
                             ) : (
                               <LoadingSpinner />
                             )}
@@ -283,6 +303,7 @@ export const FileInput = ({
                       handleUpload={handleUploadMore}
                       uploadMore={true}
                       disabled={disabled}
+                      isStorageConfigured={isStorageConfigured}
                     />
                   </div>
                 ) : (
@@ -299,11 +320,14 @@ export const FileInput = ({
                           className={!selectedFiles[0].uploaded ? "opacity-50" : ""}
                         />
                         {selectedFiles[0].uploaded ? (
-                          <div
-                            className="absolute top-2 right-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
-                            onClick={() => handleRemove(0)}>
+                          <button
+                            className="absolute right-2 top-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleRemove(0);
+                            }}>
                             <XIcon className="h-5 text-slate-700 hover:text-slate-900" />
-                          </div>
+                          </button>
                         ) : (
                           <LoadingSpinner />
                         )}
@@ -315,11 +339,14 @@ export const FileInput = ({
                           <span className="font-semibold">{selectedFiles[0].name}</span>
                         </p>
                         {selectedFiles[0].uploaded ? (
-                          <div
-                            className="absolute top-2 right-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
-                            onClick={() => handleRemove(0)}>
+                          <button
+                            className="absolute right-2 top-2 flex cursor-pointer items-center justify-center rounded-md bg-slate-100 p-1 hover:bg-slate-200 hover:bg-white/90"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleRemove(0);
+                            }}>
                             <XIcon className="h-5 text-slate-700 hover:text-slate-900" />
-                          </div>
+                          </button>
                         ) : (
                           <LoadingSpinner />
                         )}
@@ -338,6 +365,7 @@ export const FileInput = ({
                   multiple={multiple}
                   handleUpload={handleUpload}
                   disabled={disabled}
+                  isStorageConfigured={isStorageConfigured}
                 />
               )}
             </div>

@@ -1,17 +1,17 @@
 "use client";
 
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import { CheckIcon } from "lucide-react";
+import { UseFormReturn } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { TProjectStyling } from "@formbricks/types/project";
+import { TSurveyStyling } from "@formbricks/types/surveys/types";
 import { cn } from "@/lib/cn";
 import { SurveyBgSelectorTab } from "@/modules/ui/components/background-styling-card/survey-bg-selector-tab";
 import { Badge } from "@/modules/ui/components/badge";
 import { FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/modules/ui/components/form";
 import { Slider } from "@/modules/ui/components/slider";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
-import * as Collapsible from "@radix-ui/react-collapsible";
-import { useTranslate } from "@tolgee/react";
-import { CheckIcon } from "lucide-react";
-import { UseFormReturn } from "react-hook-form";
-import { TProjectStyling } from "@formbricks/types/project";
-import { TSurveyStyling } from "@formbricks/types/surveys/types";
 
 interface BackgroundStylingCardProps {
   open: boolean;
@@ -22,6 +22,7 @@ interface BackgroundStylingCardProps {
   environmentId: string;
   isUnsplashConfigured: boolean;
   form: UseFormReturn<TProjectStyling | TSurveyStyling>;
+  isStorageConfigured: boolean;
 }
 
 export const BackgroundStylingCard = ({
@@ -33,8 +34,9 @@ export const BackgroundStylingCard = ({
   environmentId,
   isUnsplashConfigured,
   form,
+  isStorageConfigured = true,
 }: BackgroundStylingCardProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [parent] = useAutoAnimate();
 
   return (
@@ -51,13 +53,14 @@ export const BackgroundStylingCard = ({
       <Collapsible.CollapsibleTrigger
         asChild
         disabled={disabled}
+        data-testid="background-styling-card-trigger"
         className={cn(
           "w-full cursor-pointer rounded-lg hover:bg-slate-50",
           disabled && "cursor-not-allowed opacity-60 hover:bg-white"
         )}>
         <div className="inline-flex px-4 py-4">
           {!isSettingsPage && (
-            <div className="flex items-center pr-5 pl-2">
+            <div className="flex items-center pl-2 pr-5">
               <CheckIcon
                 strokeWidth={3}
                 className="h-7 w-7 rounded-full border border-green-300 bg-green-100 p-1.5 text-green-600"
@@ -107,6 +110,7 @@ export const BackgroundStylingCard = ({
                     bgType={field.value?.bgType ?? "color"}
                     environmentId={environmentId}
                     isUnsplashConfigured={isUnsplashConfigured}
+                    isStorageConfigured={isStorageConfigured}
                   />
                 </FormControl>
               </FormItem>

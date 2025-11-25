@@ -1,52 +1,70 @@
-import { authenticateRequest } from "@/app/api/v1/auth";
-import { responses } from "@/app/lib/api/response";
-import { transformErrorToDetails } from "@/app/lib/api/validator";
-import { validateFileUploads } from "@/lib/fileValidation";
-import { getResponses } from "@/lib/response/service";
-import { getSurvey } from "@/lib/survey/service";
-import { hasPermission } from "@/modules/organization/settings/api-keys/lib/utils";
 import { NextRequest } from "next/server";
 import { logger } from "@formbricks/logger";
 import { DatabaseError, InvalidInputError } from "@formbricks/types/errors";
 import { TResponse, TResponseInput, ZResponseInput } from "@formbricks/types/responses";
-import { createResponse, getResponsesByEnvironmentIds } from "./lib/response";
+import { responses } from "@/app/lib/api/response";
+import { transformErrorToDetails } from "@/app/lib/api/validator";
+import { TApiAuditLog, TApiKeyAuthentication, withV1ApiWrapper } from "@/app/lib/api/with-api-logging";
+import { sendToPipeline } from "@/app/lib/pipelines";
+import { getSurvey } from "@/lib/survey/service";
+import { hasPermission } from "@/modules/organization/settings/api-keys/lib/utils";
+import { validateFileUploads } from "@/modules/storage/utils";
+import {
+  createResponseWithQuotaEvaluation,
+  getResponses,
+  getResponsesByEnvironmentIds,
+} from "./lib/response";
 
-export const GET = async (request: NextRequest) => {
-  const searchParams = request.nextUrl.searchParams;
-  const surveyId = searchParams.get("surveyId");
-  const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
-  const offset = searchParams.get("skip") ? Number(searchParams.get("skip")) : undefined;
+export const GET = withV1ApiWrapper({
+  handler: async ({
+    req,
+    authentication,
+  }: {
+    req: NextRequest;
+    authentication: NonNullable<TApiKeyAuthentication>;
+  }) => {
+    const searchParams = req.nextUrl.searchParams;
+    const surveyId = searchParams.get("surveyId");
+    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
+    const offset = searchParams.get("skip") ? Number(searchParams.get("skip")) : undefined;
 
-  try {
-    const authentication = await authenticateRequest(request);
-    if (!authentication) return responses.notAuthenticatedResponse();
-    let allResponses: TResponse[] = [];
+    try {
+      let allResponses: TResponse[] = [];
 
-    if (surveyId) {
-      const survey = await getSurvey(surveyId);
-      if (!survey) {
-        return responses.notFoundResponse("Survey", surveyId, true);
+      if (surveyId) {
+        const survey = await getSurvey(surveyId);
+        if (!survey) {
+          return {
+            response: responses.notFoundResponse("Survey", surveyId, true),
+          };
+        }
+        if (!hasPermission(authentication.environmentPermissions, survey.environmentId, "GET")) {
+          return {
+            response: responses.unauthorizedResponse(),
+          };
+        }
+        const surveyResponses = await getResponses(surveyId, limit, offset);
+        allResponses.push(...surveyResponses);
+      } else {
+        const environmentIds = authentication.environmentPermissions.map(
+          (permission) => permission.environmentId
+        );
+        const environmentResponses = await getResponsesByEnvironmentIds(environmentIds, limit, offset);
+        allResponses.push(...environmentResponses);
       }
-      if (!hasPermission(authentication.environmentPermissions, survey.environmentId, "GET")) {
-        return responses.unauthorizedResponse();
+      return {
+        response: responses.successResponse(allResponses),
+      };
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        return {
+          response: responses.badRequestResponse(error.message),
+        };
       }
-      const surveyResponses = await getResponses(surveyId, limit, offset);
-      allResponses.push(...surveyResponses);
-    } else {
-      const environmentIds = authentication.environmentPermissions.map(
-        (permission) => permission.environmentId
-      );
-      const environmentResponses = await getResponsesByEnvironmentIds(environmentIds, limit, offset);
-      allResponses.push(...environmentResponses);
+      throw error;
     }
-    return responses.successResponse(allResponses);
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      return responses.badRequestResponse(error.message);
-    }
-    throw error;
-  }
-};
+  },
+});
 
 const validateInput = async (request: Request) => {
   let jsonInput;
@@ -91,46 +109,96 @@ const validateSurvey = async (responseInput: TResponseInput, environmentId: stri
   return { survey };
 };
 
-export const POST = async (request: Request): Promise<Response> => {
-  try {
-    const authentication = await authenticateRequest(request);
-    if (!authentication) return responses.notAuthenticatedResponse();
-
-    const inputResult = await validateInput(request);
-    if (inputResult.error) return inputResult.error;
-
-    const responseInput = inputResult.data;
-    const environmentId = responseInput.environmentId;
-
-    if (!hasPermission(authentication.environmentPermissions, environmentId, "POST")) {
-      return responses.unauthorizedResponse();
-    }
-
-    const surveyResult = await validateSurvey(responseInput, environmentId);
-    if (surveyResult.error) return surveyResult.error;
-
-    if (!validateFileUploads(responseInput.data, surveyResult.survey.questions)) {
-      return responses.badRequestResponse("Invalid file upload response");
-    }
-
-    if (responseInput.createdAt && !responseInput.updatedAt) {
-      responseInput.updatedAt = responseInput.createdAt;
-    }
-
+export const POST = withV1ApiWrapper({
+  handler: async ({
+    req,
+    auditLog,
+    authentication,
+  }: {
+    req: NextRequest;
+    auditLog: TApiAuditLog;
+    authentication: NonNullable<TApiKeyAuthentication>;
+  }) => {
     try {
-      const response = await createResponse(responseInput);
-      return responses.successResponse(response, true);
-    } catch (error) {
-      if (error instanceof InvalidInputError) {
-        return responses.badRequestResponse(error.message);
+      const inputResult = await validateInput(req);
+      if (inputResult.error) {
+        return {
+          response: inputResult.error,
+        };
       }
-      logger.error({ error, url: request.url }, "Error in POST /api/v1/management/responses");
-      return responses.internalServerErrorResponse(error.message);
+
+      const responseInput = inputResult.data;
+      const environmentId = responseInput.environmentId;
+
+      if (!hasPermission(authentication.environmentPermissions, environmentId, "POST")) {
+        return {
+          response: responses.unauthorizedResponse(),
+        };
+      }
+
+      const surveyResult = await validateSurvey(responseInput, environmentId);
+      if (surveyResult.error) {
+        return {
+          response: surveyResult.error,
+        };
+      }
+
+      if (!validateFileUploads(responseInput.data, surveyResult.survey.questions)) {
+        return {
+          response: responses.badRequestResponse("Invalid file upload response"),
+        };
+      }
+
+      if (responseInput.createdAt && !responseInput.updatedAt) {
+        responseInput.updatedAt = responseInput.createdAt;
+      }
+
+      try {
+        const response = await createResponseWithQuotaEvaluation(responseInput);
+        auditLog.targetId = response.id;
+        auditLog.newObject = response;
+
+        sendToPipeline({
+          event: "responseCreated",
+          environmentId: surveyResult.survey.environmentId,
+          surveyId: response.surveyId,
+          response: response,
+        });
+
+        if (response.finished) {
+          sendToPipeline({
+            event: "responseFinished",
+            environmentId: surveyResult.survey.environmentId,
+            surveyId: response.surveyId,
+            response: response,
+          });
+        }
+
+        return {
+          response: responses.successResponse(response, true),
+        };
+      } catch (error) {
+        logger.error({ error, url: req.url }, "Error in POST /api/v1/management/responses");
+
+        if (error instanceof InvalidInputError) {
+          return {
+            response: responses.badRequestResponse(error.message),
+          };
+        }
+
+        return {
+          response: responses.internalServerErrorResponse(error.message),
+        };
+      }
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        return {
+          response: responses.badRequestResponse("An unexpected error occurred while creating the response"),
+        };
+      }
+      throw error;
     }
-  } catch (error) {
-    if (error instanceof DatabaseError) {
-      return responses.badRequestResponse(error.message);
-    }
-    throw error;
-  }
-};
+  },
+  action: "created",
+  targetType: "response",
+});

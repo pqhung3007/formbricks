@@ -1,10 +1,9 @@
+import { logger } from "@formbricks/logger";
+import { ResourceNotFoundError } from "@formbricks/types/errors";
 import { ZDisplayCreateInputV2 } from "@/app/api/v2/client/[environmentId]/displays/types/display";
 import { responses } from "@/app/lib/api/response";
 import { transformErrorToDetails } from "@/app/lib/api/validator";
-import { capturePosthogEnvironmentEvent } from "@/lib/posthogServer";
 import { getIsContactsEnabled } from "@/modules/ee/license-check/lib/utils";
-import { logger } from "@formbricks/logger";
-import { InvalidInputError } from "@formbricks/types/errors";
 import { createDisplay } from "./lib/display";
 
 interface Context {
@@ -14,7 +13,13 @@ interface Context {
 }
 
 export const OPTIONS = async (): Promise<Response> => {
-  return responses.successResponse({}, true);
+  return responses.successResponse(
+    {},
+    true,
+    // Cache CORS preflight responses for 1 hour (conservative approach)
+    // Balances performance gains with flexibility for CORS policy changes
+    "public, s-maxage=3600, max-age=3600"
+  );
 };
 
 export const POST = async (request: Request, context: Context): Promise<Response> => {
@@ -43,14 +48,13 @@ export const POST = async (request: Request, context: Context): Promise<Response
   try {
     const response = await createDisplay(inputValidation.data);
 
-    await capturePosthogEnvironmentEvent(inputValidation.data.environmentId, "display created");
     return responses.successResponse(response, true);
   } catch (error) {
-    if (error instanceof InvalidInputError) {
-      return responses.badRequestResponse(error.message);
+    if (error instanceof ResourceNotFoundError) {
+      return responses.notFoundResponse("Survey", inputValidation.data.surveyId);
     } else {
       logger.error({ error, url: request.url }, "Error creating display");
-      return responses.internalServerErrorResponse(error.message);
+      return responses.internalServerErrorResponse("Something went wrong. Please try again.");
     }
   }
 };

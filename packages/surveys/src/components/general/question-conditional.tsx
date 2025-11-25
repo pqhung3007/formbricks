@@ -1,3 +1,13 @@
+import { useEffect } from "react";
+import { type TJsFileUploadParams } from "@formbricks/types/js";
+import { type TResponseData, type TResponseDataValue, type TResponseTtc } from "@formbricks/types/responses";
+import { type TUploadFileConfig } from "@formbricks/types/storage";
+import {
+  type TSurveyQuestion,
+  type TSurveyQuestionChoice,
+  type TSurveyQuestionId,
+  TSurveyQuestionTypeEnum,
+} from "@formbricks/types/surveys/types";
 import { AddressQuestion } from "@/components/questions/address-question";
 import { CalQuestion } from "@/components/questions/cal-question";
 import { ConsentQuestion } from "@/components/questions/consent-question";
@@ -14,19 +24,10 @@ import { PictureSelectionQuestion } from "@/components/questions/picture-selecti
 import { RankingQuestion } from "@/components/questions/ranking-question";
 import { RatingQuestion } from "@/components/questions/rating-question";
 import { getLocalizedValue } from "@/lib/i18n";
-import { type TJsFileUploadParams } from "@formbricks/types/js";
-import { type TResponseData, type TResponseDataValue, type TResponseTtc } from "@formbricks/types/responses";
-import { type TUploadFileConfig } from "@formbricks/types/storage";
-import {
-  type TSurveyQuestion,
-  type TSurveyQuestionChoice,
-  type TSurveyQuestionId,
-  TSurveyQuestionTypeEnum,
-} from "@formbricks/types/surveys/types";
 
 interface QuestionConditionalProps {
   question: TSurveyQuestion;
-  value: string | number | string[] | Record<string, string>;
+  value: TResponseDataValue;
   onChange: (responseData: TResponseData) => void;
   onSubmit: (data: TResponseData, ttc: TResponseTtc) => void;
   onBack: () => void;
@@ -43,6 +44,8 @@ interface QuestionConditionalProps {
   currentQuestionId: TSurveyQuestionId;
   isBackButtonHidden: boolean;
   onOpenExternalURL?: (url: string) => void | Promise<void>;
+  dir?: "ltr" | "rtl" | "auto";
+  fullSizeCards: boolean;
 }
 
 export function QuestionConditional({
@@ -64,6 +67,8 @@ export function QuestionConditional({
   currentQuestionId,
   isBackButtonHidden,
   onOpenExternalURL,
+  dir,
+  fullSizeCards,
 }: QuestionConditionalProps) {
   const getResponseValueForRankingQuestion = (
     value: string[],
@@ -74,13 +79,16 @@ export function QuestionConditional({
       .filter((id): id is TSurveyQuestionChoice["id"] => id !== undefined);
   };
 
-  if (!value && (prefilledQuestionValue || prefilledQuestionValue === "")) {
-    if (skipPrefilled) {
-      onSubmit({ [question.id]: prefilledQuestionValue }, { [question.id]: 0 });
-    } else {
-      onChange({ [question.id]: prefilledQuestionValue });
+  useEffect(() => {
+    if (value === undefined && (prefilledQuestionValue || prefilledQuestionValue === "")) {
+      if (skipPrefilled) {
+        onSubmit({ [question.id]: prefilledQuestionValue }, { [question.id]: 0 });
+      } else {
+        onChange({ [question.id]: prefilledQuestionValue });
+      }
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- we want to run this only once when the question renders for the first time
+  }, []);
 
   return question.type === TSurveyQuestionTypeEnum.OpenText ? (
     <OpenTextQuestion
@@ -98,6 +106,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.MultipleChoiceSingle ? (
     <MultipleChoiceSingleQuestion
@@ -115,6 +125,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.MultipleChoiceMulti ? (
     <MultipleChoiceMultiQuestion
@@ -132,6 +144,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.NPS ? (
     <NPSQuestion
@@ -149,6 +163,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.CTA ? (
     <CTAQuestion
@@ -167,6 +183,7 @@ export function QuestionConditional({
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
       onOpenExternalURL={onOpenExternalURL}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Rating ? (
     <RatingQuestion
@@ -184,6 +201,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Consent ? (
     <ConsentQuestion
@@ -201,6 +220,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Date ? (
     <DateQuestion
@@ -218,6 +239,7 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.PictureSelection ? (
     <PictureSelectionQuestion
@@ -235,6 +257,8 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.FileUpload ? (
     <FileUploadQuestion
@@ -254,6 +278,7 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Cal ? (
     <CalQuestion
@@ -271,6 +296,7 @@ export function QuestionConditional({
       setTtc={setTtc}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Matrix ? (
     <MatrixQuestion
@@ -286,6 +312,7 @@ export function QuestionConditional({
       setTtc={setTtc}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Address ? (
     <AddressQuestion
@@ -302,6 +329,8 @@ export function QuestionConditional({
       currentQuestionId={currentQuestionId}
       autoFocusEnabled={autoFocusEnabled}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.Ranking ? (
     <RankingQuestion
@@ -318,6 +347,7 @@ export function QuestionConditional({
       autoFocusEnabled={autoFocusEnabled}
       currentQuestionId={currentQuestionId}
       isBackButtonHidden={isBackButtonHidden}
+      fullSizeCards={fullSizeCards}
     />
   ) : question.type === TSurveyQuestionTypeEnum.ContactInfo ? (
     <ContactInfoQuestion
@@ -334,6 +364,8 @@ export function QuestionConditional({
       currentQuestionId={currentQuestionId}
       autoFocusEnabled={autoFocusEnabled}
       isBackButtonHidden={isBackButtonHidden}
+      dir={dir}
+      fullSizeCards={fullSizeCards}
     />
   ) : null;
 }

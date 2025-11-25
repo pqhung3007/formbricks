@@ -1,16 +1,3 @@
-import { contactAttributeKeyPaths } from "@/modules/api/v2/management/contact-attribute-keys/lib/openapi";
-// import { contactAttributePaths } from "@/modules/api/v2/management/contact-attributes/lib/openapi";
-// import { contactPaths } from "@/modules/api/v2/management/contacts/lib/openapi";
-import { responsePaths } from "@/modules/api/v2/management/responses/lib/openapi";
-import { surveyContactLinksBySegmentPaths } from "@/modules/api/v2/management/surveys/[surveyId]/contact-links/segments/lib/openapi";
-import { surveyPaths } from "@/modules/api/v2/management/surveys/lib/openapi";
-import { webhookPaths } from "@/modules/api/v2/management/webhooks/lib/openapi";
-import { mePaths } from "@/modules/api/v2/me/lib/openapi";
-import { projectTeamPaths } from "@/modules/api/v2/organizations/[organizationId]/project-teams/lib/openapi";
-import { teamPaths } from "@/modules/api/v2/organizations/[organizationId]/teams/lib/openapi";
-import { userPaths } from "@/modules/api/v2/organizations/[organizationId]/users/lib/openapi";
-import { rolePaths } from "@/modules/api/v2/roles/lib/openapi";
-import { bulkContactPaths } from "@/modules/ee/contacts/api/v2/management/contacts/bulk/lib/openapi";
 import * as yaml from "yaml";
 import { z } from "zod";
 import { createDocument, extendZodWithOpenApi } from "zod-openapi";
@@ -25,6 +12,20 @@ import { ZSurveyWithoutQuestionType } from "@formbricks/database/zod/surveys";
 import { ZTeam } from "@formbricks/database/zod/teams";
 import { ZUser } from "@formbricks/database/zod/users";
 import { ZWebhook } from "@formbricks/database/zod/webhooks";
+import { healthPaths } from "@/modules/api/v2/health/lib/openapi";
+import { ZOverallHealthStatus } from "@/modules/api/v2/health/types/health-status";
+import { contactAttributeKeyPaths } from "@/modules/api/v2/management/contact-attribute-keys/lib/openapi";
+import { responsePaths } from "@/modules/api/v2/management/responses/lib/openapi";
+import { surveyContactLinksBySegmentPaths } from "@/modules/api/v2/management/surveys/[surveyId]/contact-links/segments/lib/openapi";
+import { surveyPaths } from "@/modules/api/v2/management/surveys/lib/openapi";
+import { webhookPaths } from "@/modules/api/v2/management/webhooks/lib/openapi";
+import { mePaths } from "@/modules/api/v2/me/lib/openapi";
+import { projectTeamPaths } from "@/modules/api/v2/organizations/[organizationId]/project-teams/lib/openapi";
+import { teamPaths } from "@/modules/api/v2/organizations/[organizationId]/teams/lib/openapi";
+import { userPaths } from "@/modules/api/v2/organizations/[organizationId]/users/lib/openapi";
+import { rolePaths } from "@/modules/api/v2/roles/lib/openapi";
+import { bulkContactPaths } from "@/modules/ee/contacts/api/v2/management/contacts/bulk/lib/openapi";
+import { contactPaths } from "@/modules/ee/contacts/api/v2/management/contacts/lib/openapi";
 
 extendZodWithOpenApi(z);
 
@@ -36,12 +37,12 @@ const document = createDocument({
     version: "2.0.0",
   },
   paths: {
+    ...healthPaths,
     ...rolePaths,
     ...mePaths,
     ...responsePaths,
     ...bulkContactPaths,
-    // ...contactPaths,
-    // ...contactAttributePaths,
+    ...contactPaths,
     ...contactAttributeKeyPaths,
     ...surveyPaths,
     ...surveyContactLinksBySegmentPaths,
@@ -58,6 +59,10 @@ const document = createDocument({
   ],
   tags: [
     {
+      name: "Health",
+      description: "Operations for checking critical application dependencies health status.",
+    },
+    {
       name: "Roles",
       description: "Operations for managing roles.",
     },
@@ -66,43 +71,43 @@ const document = createDocument({
       description: "Operations for managing your API key.",
     },
     {
-      name: "Management API > Responses",
+      name: "Management API - Responses",
       description: "Operations for managing responses.",
     },
     {
-      name: "Management API > Contacts",
+      name: "Management API - Contacts",
       description: "Operations for managing contacts.",
     },
     {
-      name: "Management API > Contact Attributes",
+      name: "Management API - Contact Attributes",
       description: "Operations for managing contact attributes.",
     },
     {
-      name: "Management API > Contact Attributes Keys",
-      description: "Operations for managing contact attributes keys.",
+      name: "Management API - Contact Attribute Keys",
+      description: "Operations for managing contact attribute keys.",
     },
     {
-      name: "Management API > Surveys",
+      name: "Management API - Surveys",
       description: "Operations for managing surveys.",
     },
     {
-      name: "Management API > Surveys > Contact Links",
+      name: "Management API - Surveys - Contact Links",
       description: "Operations for generating personalized survey links for contacts.",
     },
     {
-      name: "Management API > Webhooks",
+      name: "Management API - Webhooks",
       description: "Operations for managing webhooks.",
     },
     {
-      name: "Organizations API > Teams",
+      name: "Organizations API - Teams",
       description: "Operations for managing teams.",
     },
     {
-      name: "Organizations API > Project Teams",
+      name: "Organizations API - Project Teams",
       description: "Operations for managing project teams.",
     },
     {
-      name: "Organizations API > Users",
+      name: "Organizations API - Users",
       description: "Operations for managing users.",
     },
   ],
@@ -116,6 +121,7 @@ const document = createDocument({
       },
     },
     schemas: {
+      health: ZOverallHealthStatus,
       role: ZRoles,
       me: ZApiKeyData,
       response: ZResponse,

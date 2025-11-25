@@ -1,12 +1,10 @@
-import { webhookCache } from "@/lib/cache/webhook";
-import { captureTelemetry } from "@/lib/telemetry";
+import { Prisma, Webhook } from "@prisma/client";
+import { prisma } from "@formbricks/database";
+import { Result, err, ok } from "@formbricks/types/error-handlers";
 import { getWebhooksQuery } from "@/modules/api/v2/management/webhooks/lib/utils";
 import { TGetWebhooksFilter, TWebhookInput } from "@/modules/api/v2/management/webhooks/types/webhooks";
 import { ApiErrorResponseV2 } from "@/modules/api/v2/types/api-error";
 import { ApiResponseWithMeta } from "@/modules/api/v2/types/api-success";
-import { Prisma, Webhook } from "@prisma/client";
-import { prisma } from "@formbricks/database";
-import { Result, err, ok } from "@formbricks/types/error-handlers";
 
 export const getWebhooks = async (
   environmentIds: string[],
@@ -48,8 +46,6 @@ export const getWebhooks = async (
 };
 
 export const createWebhook = async (webhook: TWebhookInput): Promise<Result<Webhook, ApiErrorResponseV2>> => {
-  captureTelemetry("webhook_created");
-
   const { environmentId, name, url, source, triggers, surveyIds } = webhook;
 
   try {
@@ -68,11 +64,6 @@ export const createWebhook = async (webhook: TWebhookInput): Promise<Result<Webh
 
     const createdWebhook = await prisma.webhook.create({
       data: prismaData,
-    });
-
-    webhookCache.revalidate({
-      environmentId: createdWebhook.environmentId,
-      source: createdWebhook.source,
     });
 
     return ok(createdWebhook);

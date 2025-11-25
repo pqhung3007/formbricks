@@ -1,13 +1,13 @@
 "use client";
 
-import { DeleteDialog } from "@/modules/ui/components/delete-dialog";
-import { Input } from "@/modules/ui/components/input";
-import { T, useTranslate } from "@tolgee/react";
-import { signOut } from "next-auth/react";
 import { Dispatch, SetStateAction, useState } from "react";
 import toast from "react-hot-toast";
+import { Trans, useTranslation } from "react-i18next";
 import { TOrganization } from "@formbricks/types/organizations";
 import { TUser } from "@formbricks/types/user";
+import { useSignOut } from "@/modules/auth/hooks/use-sign-out";
+import { DeleteDialog } from "@/modules/ui/components/delete-dialog";
+import { Input } from "@/modules/ui/components/input";
 import { deleteUserAction } from "./actions";
 
 interface DeleteAccountModalProps {
@@ -16,7 +16,6 @@ interface DeleteAccountModalProps {
   user: TUser;
   isFormbricksCloud: boolean;
   organizationsWithSingleOwner: TOrganization[];
-  formbricksLogout: () => Promise<void>;
 }
 
 export const DeleteAccountModal = ({
@@ -24,12 +23,12 @@ export const DeleteAccountModal = ({
   open,
   user,
   isFormbricksCloud,
-  formbricksLogout,
   organizationsWithSingleOwner,
 }: DeleteAccountModalProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [deleting, setDeleting] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const { signOut: signOutWithAudit } = useSignOut({ id: user.id, email: user.email });
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
@@ -38,13 +37,19 @@ export const DeleteAccountModal = ({
     try {
       setDeleting(true);
       await deleteUserAction();
-      await formbricksLogout();
-      // redirect to account deletion survey in Formbricks Cloud
+
+      // Sign out with account deletion reason (no automatic redirect)
+      await signOutWithAudit({
+        reason: "account_deletion",
+        redirect: false, // Prevent NextAuth automatic redirect
+        clearEnvironmentId: true,
+      });
+
+      // Manual redirect after signOut completes
       if (isFormbricksCloud) {
-        await signOut({ redirect: true });
         window.location.replace("https://app.formbricks.com/s/clri52y3z8f221225wjdhsoo2");
       } else {
-        await signOut({ callbackUrl: "/auth/login" });
+        window.location.replace("/auth/login");
       }
     } catch (error) {
       toast.error("Something went wrong");
@@ -72,7 +77,10 @@ export const DeleteAccountModal = ({
           </li>
           {organizationsWithSingleOwner.length > 0 && (
             <li>
-              <T keyName="environments.settings.profile.organizations_delete_message" params={{ b: <b /> }} />
+              <Trans
+                i18nKey="environments.settings.profile.organizations_delete_message"
+                components={{ b: <b /> }}
+              />
             </li>
           )}
           {organizationsWithSingleOwner.length > 0 && (

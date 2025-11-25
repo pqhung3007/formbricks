@@ -1,7 +1,15 @@
 "use client";
 
+import { createId } from "@paralleldrive/cuid2";
+import { TrashIcon } from "lucide-react";
+import React, { useCallback } from "react";
+import { useForm } from "react-hook-form";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import { TSurveyQuota } from "@formbricks/types/quota";
+import { TSurvey, TSurveyVariable } from "@formbricks/types/surveys/types";
 import { extractRecallInfo } from "@/lib/utils/recall";
-import { findVariableUsedInLogic } from "@/modules/survey/editor/lib/utils";
+import { findVariableUsedInLogic, isUsedInQuota, isUsedInRecall } from "@/modules/survey/editor/lib/utils";
 import { Button } from "@/modules/ui/components/button";
 import { FormControl, FormField, FormItem, FormProvider } from "@/modules/ui/components/form";
 import { Input } from "@/modules/ui/components/input";
@@ -13,19 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/modules/ui/components/select";
-import { createId } from "@paralleldrive/cuid2";
-import { useTranslate } from "@tolgee/react";
-import { TrashIcon } from "lucide-react";
-import React, { useCallback, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import toast from "react-hot-toast";
-import { TSurvey, TSurveyVariable } from "@formbricks/types/surveys/types";
 
 interface SurveyVariablesCardItemProps {
   variable?: TSurveyVariable;
   localSurvey: TSurvey;
   setLocalSurvey: React.Dispatch<React.SetStateAction<TSurvey>>;
   mode: "create" | "edit";
+  quotas: TSurveyQuota[];
 }
 
 export const SurveyVariablesCardItem = ({
@@ -33,8 +35,9 @@ export const SurveyVariablesCardItem = ({
   localSurvey,
   setLocalSurvey,
   mode,
+  quotas,
 }: SurveyVariablesCardItemProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const form = useForm<TSurveyVariable>({
     defaultValues: variable ?? {
       id: createId(),
@@ -64,7 +67,6 @@ export const SurveyVariablesCardItem = ({
       ...localSurvey,
       variables: [...localSurvey.variables, data],
     });
-
     form.reset({
       id: createId(),
       name: "",
@@ -73,37 +75,66 @@ export const SurveyVariablesCardItem = ({
     });
   };
 
-  useEffect(() => {
-    if (mode === "create") {
-      return;
-    }
+  // Removed auto-submit effect
 
-    const subscription = form.watch(() => form.handleSubmit(editSurveyVariable)());
-    return () => subscription.unsubscribe();
-  }, [form, mode, editSurveyVariable]);
-
-  const onVariableDelete = (variable: TSurveyVariable) => {
+  const onVariableDelete = (variableToDelete: TSurveyVariable) => {
     const questions = [...localSurvey.questions];
-
-    const quesIdx = findVariableUsedInLogic(localSurvey, variable.id);
+    const quesIdx = findVariableUsedInLogic(localSurvey, variableToDelete.id);
 
     if (quesIdx !== -1) {
       toast.error(
         t(
           "environments.surveys.edit.variable_is_used_in_logic_of_question_please_remove_it_from_logic_first",
           {
-            variable: variable.name,
+            variable: variableToDelete.name,
             questionIndex: quesIdx + 1,
           }
         )
       );
       return;
     }
+    const recallQuestionIdx = isUsedInRecall(localSurvey, variableToDelete.id);
+    if (recallQuestionIdx === -2) {
+      toast.error(
+        t("environments.surveys.edit.variable_used_in_recall_welcome", { variable: variableToDelete.name })
+      );
+      return;
+    }
 
-    // find if this variable is used in any question's recall and remove it for every language
+    if (recallQuestionIdx === localSurvey.questions.length) {
+      toast.error(
+        t("environments.surveys.edit.variable_used_in_recall_ending_card", {
+          variable: variableToDelete.name,
+        })
+      );
+      return;
+    }
+
+    if (recallQuestionIdx !== -1) {
+      toast.error(
+        t("environments.surveys.edit.variable_used_in_recall", {
+          variable: variableToDelete.name,
+          questionIndex: recallQuestionIdx + 1,
+        })
+      );
+      return;
+    }
+
+    const quotaIdx = quotas.findIndex((quota) => isUsedInQuota(quota, { variableId: variableToDelete.id }));
+
+    if (quotaIdx !== -1) {
+      toast.error(
+        t("environments.surveys.edit.variable_is_used_in_quota_please_remove_it_from_quota_first", {
+          variableName: variableToDelete.name,
+          quotaName: quotas[quotaIdx].name,
+        })
+      );
+      return;
+    }
+    // remove recall references
     questions.forEach((question) => {
       for (const [languageCode, headline] of Object.entries(question.headline)) {
-        if (headline.includes(`recall:${variable.id}`)) {
+        if (headline.includes(`recall:${variableToDelete.id}`)) {
           const recallInfo = extractRecallInfo(headline);
           if (recallInfo) {
             question.headline[languageCode] = headline.replace(recallInfo, "");
@@ -113,7 +144,7 @@ export const SurveyVariablesCardItem = ({
     });
 
     setLocalSurvey((prevSurvey) => {
-      const updatedVariables = prevSurvey.variables.filter((v) => v.id !== variable.id);
+      const updatedVariables = prevSurvey.variables.filter((v) => v.id !== variableToDelete.id);
       return { ...prevSurvey, variables: updatedVariables, questions };
     });
   };
@@ -139,6 +170,7 @@ export const SurveyVariablesCardItem = ({
           )}
 
           <div className="mt-2 flex w-full items-center gap-2">
+            {/* Name field: update on blur */}
             <FormField
               control={form.control}
               name="name"
@@ -150,25 +182,18 @@ export const SurveyVariablesCardItem = ({
                   ),
                 },
                 validate: (value) => {
-                  // if the variable name is already taken
-                  if (
-                    mode === "create" &&
-                    localSurvey.variables.find((variable) => variable.name === value)
-                  ) {
+                  if (mode === "create" && localSurvey.variables.find((v) => v.name === value)) {
                     return t(
                       "environments.surveys.edit.variable_name_is_already_taken_please_choose_another"
                     );
                   }
-
                   if (mode === "edit" && variable && variable.name !== value) {
-                    if (localSurvey.variables.find((variable) => variable.name === value)) {
+                    if (localSurvey.variables.find((v) => v.name === value)) {
                       return t(
                         "environments.surveys.edit.variable_name_is_already_taken_please_choose_another"
                       );
                     }
                   }
-
-                  // if it does not start with a letter
                   if (!/^[a-z]/.test(value)) {
                     return t("environments.surveys.edit.variable_name_must_start_with_a_letter");
                   }
@@ -180,8 +205,8 @@ export const SurveyVariablesCardItem = ({
                     <Input
                       {...field}
                       isInvalid={isNameError}
-                      type="text"
                       placeholder={t("environments.surveys.edit.field_name_eg_score_price")}
+                      onBlur={mode === "edit" ? () => form.handleSubmit(editSurveyVariable)() : undefined}
                     />
                   </FormControl>
                 </FormItem>
@@ -192,28 +217,29 @@ export const SurveyVariablesCardItem = ({
               control={form.control}
               name="type"
               render={({ field }) => (
-                <Select
-                  {...field}
-                  onValueChange={(value) => {
-                    form.setValue("value", value === "number" ? 0 : "");
-                    field.onChange(value);
-                  }}>
-                  <SelectTrigger className="w-24">
-                    <SelectValue
-                      placeholder={t("environments.surveys.edit.select_type")}
-                      className="text-sm"
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={"number"}>{t("common.number")}</SelectItem>
-                    <SelectItem value={"text"}>{t("common.text")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormItem
+                  onBlur={mode === "edit" ? () => form.handleSubmit(editSurveyVariable)() : undefined}>
+                  <Select
+                    {...field}
+                    onValueChange={(value) => {
+                      form.setValue("value", value === "number" ? 0 : "");
+                      field.onChange(value);
+                    }}>
+                    <SelectTrigger className="h-10 w-24">
+                      <SelectValue placeholder={t("environments.surveys.edit.select_type")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="number">{t("common.number")}</SelectItem>
+                      <SelectItem value="text">{t("common.text")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
               )}
             />
 
             <p className="text-slate-600">=</p>
 
+            {/* Value field: update on blur */}
             <FormField
               control={form.control}
               name="value"
@@ -222,23 +248,24 @@ export const SurveyVariablesCardItem = ({
                   <FormControl>
                     <Input
                       {...field}
-                      onChange={(e) => {
-                        field.onChange(variableType === "number" ? Number(e.target.value) : e.target.value);
-                      }}
+                      onChange={(e) =>
+                        field.onChange(variableType === "number" ? Number(e.target.value) : e.target.value)
+                      }
                       placeholder={t("environments.surveys.edit.initial_value")}
                       type={variableType === "number" ? "number" : "text"}
+                      onBlur={mode === "edit" ? () => form.handleSubmit(editSurveyVariable)() : undefined}
                     />
                   </FormControl>
                 </FormItem>
               )}
             />
 
+            {/* Create / Delete buttons */}
             {mode === "create" && (
               <Button variant="secondary" type="submit" className="h-10 whitespace-nowrap">
                 {t("environments.surveys.edit.add_variable")}
               </Button>
             )}
-
             {mode === "edit" && variable && (
               <Button
                 variant="ghost"

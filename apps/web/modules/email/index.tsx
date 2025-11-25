@@ -1,3 +1,12 @@
+import { render } from "@react-email/render";
+import { createTransport } from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import { logger } from "@formbricks/logger";
+import type { TLinkSurveyEmailData } from "@formbricks/types/email";
+import { InvalidInputError } from "@formbricks/types/errors";
+import type { TResponse } from "@formbricks/types/responses";
+import type { TSurvey } from "@formbricks/types/surveys/types";
+import { TUserEmail, TUserLocale } from "@formbricks/types/user";
 import {
   DEBUG,
   MAIL_FROM,
@@ -11,33 +20,20 @@ import {
   SMTP_USER,
   WEBAPP_URL,
 } from "@/lib/constants";
-import { getSurveyDomain } from "@/lib/getSurveyUrl";
-import { createInviteToken, createToken, createTokenForLinkSurvey } from "@/lib/jwt";
+import { getPublicDomain } from "@/lib/getPublicUrl";
+import { createEmailChangeToken, createInviteToken, createToken, createTokenForLinkSurvey } from "@/lib/jwt";
 import { getOrganizationByEnvironmentId } from "@/lib/organization/service";
+import { getTranslate } from "@/lingodotdev/server";
+import NewEmailVerification from "@/modules/email/emails/auth/new-email-verification";
 import { EmailCustomizationPreviewEmail } from "@/modules/email/emails/general/email-customization-preview-email";
-import { getTranslate } from "@/tolgee/server";
-import { render } from "@react-email/render";
-import { createTransport } from "nodemailer";
-import type SMTPTransport from "nodemailer/lib/smtp-transport";
-import { logger } from "@formbricks/logger";
-import type { TLinkSurveyEmailData } from "@formbricks/types/email";
-import { InvalidInputError } from "@formbricks/types/errors";
-import type { TResponse } from "@formbricks/types/responses";
-import type { TSurvey } from "@formbricks/types/surveys/types";
-import { TUserEmail, TUserLocale } from "@formbricks/types/user";
-import type { TWeeklySummaryNotificationResponse } from "@formbricks/types/weekly-summary";
 import { ForgotPasswordEmail } from "./emails/auth/forgot-password-email";
 import { PasswordResetNotifyEmail } from "./emails/auth/password-reset-notify-email";
 import { VerificationEmail } from "./emails/auth/verification-email";
 import { InviteAcceptedEmail } from "./emails/invite/invite-accepted-email";
 import { InviteEmail } from "./emails/invite/invite-email";
-import { OnboardingInviteEmail } from "./emails/invite/onboarding-invite-email";
 import { EmbedSurveyPreviewEmail } from "./emails/survey/embed-survey-preview-email";
-import { FollowUpEmail } from "./emails/survey/follow-up";
 import { LinkSurveyEmail } from "./emails/survey/link-survey-email";
 import { ResponseFinishedEmail } from "./emails/survey/response-finished-email";
-import { NoLiveSurveyNotificationEmail } from "./emails/weekly-summary/no-live-survey-notification-email";
-import { WeeklySummaryNotificationEmail } from "./emails/weekly-summary/weekly-summary-notification-email";
 
 export const IS_SMTP_CONFIGURED = Boolean(SMTP_HOST && SMTP_PORT);
 
@@ -87,6 +83,25 @@ export const sendEmail = async (emailData: SendEmailDataProps): Promise<boolean>
   }
 };
 
+export const sendVerificationNewEmail = async (id: string, email: string): Promise<boolean> => {
+  try {
+    const t = await getTranslate();
+    const token = createEmailChangeToken(id, email);
+    const verifyLink = `${WEBAPP_URL}/verify-email-change?token=${encodeURIComponent(token)}`;
+
+    const html = await render(await NewEmailVerification({ verifyLink }));
+
+    return await sendEmail({
+      to: email,
+      subject: t("emails.verification_new_email_subject"),
+      html,
+    });
+  } catch (error) {
+    logger.error(error, "Error in sendVerificationNewEmail");
+    throw error;
+  }
+};
+
 export const sendVerificationEmail = async ({
   id,
   email,
@@ -96,7 +111,7 @@ export const sendVerificationEmail = async ({
 }): Promise<boolean> => {
   try {
     const t = await getTranslate();
-    const token = createToken(id, email, {
+    const token = createToken(id, {
       expiresIn: "1d",
     });
     const verifyLink = `${WEBAPP_URL}/auth/verify?token=${encodeURIComponent(token)}`;
@@ -121,7 +136,7 @@ export const sendForgotPasswordEmail = async (user: {
   locale: TUserLocale;
 }): Promise<boolean> => {
   const t = await getTranslate();
-  const token = createToken(user.id, user.email, {
+  const token = createToken(user.id, {
     expiresIn: "1d",
   });
   const verifyLink = `${WEBAPP_URL}/auth/forgot-password/reset?token=${encodeURIComponent(token)}`;
@@ -147,9 +162,7 @@ export const sendInviteMemberEmail = async (
   inviteId: string,
   email: string,
   inviterName: string,
-  inviteeName: string,
-  isOnboardingInvite?: boolean,
-  inviteMessage?: string
+  inviteeName: string
 ): Promise<boolean> => {
   const token = createInviteToken(inviteId, email, {
     expiresIn: "7d",
@@ -158,26 +171,12 @@ export const sendInviteMemberEmail = async (
 
   const verifyLink = `${WEBAPP_URL}/invite?token=${encodeURIComponent(token)}`;
 
-  if (isOnboardingInvite && inviteMessage) {
-    const html = await render(
-      await OnboardingInviteEmail({ verifyLink, inviteMessage, inviterName, inviteeName })
-    );
-    return await sendEmail({
-      to: email,
-      subject: t("emails.onboarding_invite_email_subject", {
-        inviterName,
-      }),
-      html,
-    });
-  } else {
-    const t = await getTranslate();
-    const html = await render(await InviteEmail({ inviteeName, inviterName, verifyLink }));
-    return await sendEmail({
-      to: email,
-      subject: t("emails.invite_member_email_subject"),
-      html,
-    });
-  }
+  const html = await render(await InviteEmail({ inviteeName, inviterName, verifyLink }));
+  return await sendEmail({
+    to: email,
+    subject: t("emails.invite_member_email_subject"),
+    html,
+  });
 };
 
 export const sendInviteAcceptedEmail = async (
@@ -275,9 +274,9 @@ export const sendLinkSurveyToVerifiedEmail = async (data: TLinkSurveyEmailData):
   const t = await getTranslate();
   const getSurveyLink = (): string => {
     if (singleUseId) {
-      return `${getSurveyDomain()}/s/${surveyId}?verify=${encodeURIComponent(token)}&suId=${singleUseId}`;
+      return `${getPublicDomain()}/s/${surveyId}?verify=${encodeURIComponent(token)}&suId=${singleUseId}`;
     }
-    return `${getSurveyDomain()}/s/${surveyId}?verify=${encodeURIComponent(token)}`;
+    return `${getPublicDomain()}/s/${surveyId}?verify=${encodeURIComponent(token)}`;
   };
   const surveyLink = getSurveyLink();
 
@@ -286,109 +285,5 @@ export const sendLinkSurveyToVerifiedEmail = async (data: TLinkSurveyEmailData):
     to: data.email,
     subject: t("emails.verified_link_survey_email_subject"),
     html,
-  });
-};
-
-export const sendWeeklySummaryNotificationEmail = async (
-  email: string,
-  notificationData: TWeeklySummaryNotificationResponse
-): Promise<void> => {
-  const startDate = `${notificationData.lastWeekDate.getDate().toString()} ${notificationData.lastWeekDate.toLocaleString(
-    "default",
-    { month: "short" }
-  )}`;
-  const endDate = `${notificationData.currentDate.getDate().toString()} ${notificationData.currentDate.toLocaleString(
-    "default",
-    { month: "short" }
-  )}`;
-  const startYear = notificationData.lastWeekDate.getFullYear();
-  const endYear = notificationData.currentDate.getFullYear();
-  const t = await getTranslate();
-  const html = await render(
-    WeeklySummaryNotificationEmail({
-      notificationData,
-      startDate,
-      endDate,
-      startYear,
-      endYear,
-      t,
-    })
-  );
-  await sendEmail({
-    to: email,
-    subject: t("emails.weekly_summary_email_subject", {
-      projectName: notificationData.projectName,
-    }),
-    html,
-  });
-};
-
-export const sendNoLiveSurveyNotificationEmail = async (
-  email: string,
-  notificationData: TWeeklySummaryNotificationResponse
-): Promise<void> => {
-  const startDate = `${notificationData.lastWeekDate.getDate().toString()} ${notificationData.lastWeekDate.toLocaleString(
-    "default",
-    { month: "short" }
-  )}`;
-  const endDate = `${notificationData.currentDate.getDate().toString()} ${notificationData.currentDate.toLocaleString(
-    "default",
-    { month: "short" }
-  )}`;
-  const startYear = notificationData.lastWeekDate.getFullYear();
-  const endYear = notificationData.currentDate.getFullYear();
-  const t = await getTranslate();
-  const html = await render(
-    NoLiveSurveyNotificationEmail({
-      notificationData,
-      startDate,
-      endDate,
-      startYear,
-      endYear,
-    })
-  );
-  await sendEmail({
-    to: email,
-    subject: t("emails.weekly_summary_email_subject", {
-      projectName: notificationData.projectName,
-    }),
-    html,
-  });
-};
-
-export const sendFollowUpEmail = async ({
-  html,
-  replyTo,
-  subject,
-  to,
-  survey,
-  response,
-  attachResponseData = false,
-  logoUrl,
-}: {
-  html: string;
-  subject: string;
-  to: string;
-  replyTo: string[];
-  attachResponseData: boolean;
-  survey: TSurvey;
-  response: TResponse;
-  logoUrl?: string;
-}): Promise<void> => {
-  const emailHtmlBody = await render(
-    await FollowUpEmail({
-      html,
-      logoUrl,
-      attachResponseData,
-      survey,
-      response,
-    })
-  );
-
-  await sendEmail({
-    to,
-    replyTo: replyTo.join(", "),
-    subject,
-    html: emailHtmlBody,
   });
 };

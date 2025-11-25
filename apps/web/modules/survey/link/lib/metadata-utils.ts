@@ -1,79 +1,103 @@
-import { IS_FORMBRICKS_CLOUD } from "@/lib/constants";
-import { getSurveyDomain } from "@/lib/getSurveyUrl";
-import { COLOR_DEFAULTS } from "@/lib/styling/constants";
-import { getSurvey } from "@/modules/survey/lib/survey";
-import { getProjectByEnvironmentId } from "@/modules/survey/link/lib/project";
 import { Metadata } from "next";
-import { TSurveyWelcomeCard } from "@formbricks/types/surveys/types";
+import { getTextContent } from "@formbricks/types/surveys/validation";
+import { IS_FORMBRICKS_CLOUD } from "@/lib/constants";
+import { getPublicDomain } from "@/lib/getPublicUrl";
+import { getLocalizedValue } from "@/lib/i18n/utils";
+import { COLOR_DEFAULTS } from "@/lib/styling/constants";
+import { recallToHeadline } from "@/lib/utils/recall";
+import { getSurvey } from "@/modules/survey/lib/survey";
+
+type TBasicSurveyMetadata = {
+  title: string;
+  description: string;
+  survey: Awaited<ReturnType<typeof getSurvey>> | null;
+  ogImage?: string;
+};
+
+export const getNameForURL = (value: string) => encodeURIComponent(value);
+
+export const getBrandColorForURL = (value: string) => encodeURIComponent(value);
 
 /**
- * Utility function to encode name for URL usage
+ * Get basic survey metadata (title and description) based on link metadata, welcome card or survey name.
+ *
+ * @param surveyId - Survey identifier
+ * @param languageCode - Language code for localization (default: "default")
+ * @param survey - Optional survey data if already available (e.g., from generateMetadata)
  */
-export const getNameForURL = (url: string) => url.replace(/ /g, "%20");
-
-/**
- * Utility function to encode brand color for URL usage
- */
-export const getBrandColorForURL = (url: string) => url.replace(/#/g, "%23");
-
-/**
- * Get basic survey metadata (title and description) based on welcome card or survey name
- */
-export const getBasicSurveyMetadata = async (surveyId: string) => {
-  const survey = await getSurvey(surveyId);
+export const getBasicSurveyMetadata = async (
+  surveyId: string,
+  languageCode = "default",
+  survey?: Awaited<ReturnType<typeof getSurvey>> | null
+): Promise<TBasicSurveyMetadata> => {
+  const surveyData = survey ?? (await getSurvey(surveyId));
 
   // If survey doesn't exist, return default metadata
-  if (!survey) {
+  if (!surveyData) {
     return {
       title: "Survey",
-      description: "Complete this survey",
+      description: "Please complete this survey.",
       survey: null,
+      ogImage: undefined,
     };
   }
 
-  const project = await getProjectByEnvironmentId(survey.environmentId);
-  const welcomeCard = survey.welcomeCard as TSurveyWelcomeCard;
+  const metadata = surveyData.metadata;
+  const welcomeCard = surveyData.welcomeCard;
+  const useDefaultLanguageCode =
+    languageCode === "default" ||
+    surveyData.languages.find((lang) => lang.language.code === languageCode)?.default;
 
-  // Set title to either welcome card headline or survey name
-  let title = "Survey";
-  if (welcomeCard.enabled && welcomeCard.headline?.default) {
-    title = welcomeCard.headline.default;
-  } else {
-    title = survey.name;
-  }
+  // Determine language code to use for metadata
+  const langCode = useDefaultLanguageCode ? "default" : languageCode;
 
-  // Set description to either welcome card html content or default
-  let description = "Complete this survey";
-  if (welcomeCard.enabled && welcomeCard.html?.default) {
-    description = welcomeCard.html.default;
-  }
+  // Set title - priority: custom link metadata > welcome card > survey name
+  const titleFromMetadata = metadata?.title ? getLocalizedValue(metadata.title, langCode) || "" : undefined;
+  const titleFromWelcome =
+    welcomeCard?.enabled && welcomeCard.headline
+      ? getTextContent(
+          getLocalizedValue(recallToHeadline(welcomeCard.headline, surveyData, false, langCode), langCode)
+        ) || ""
+      : undefined;
+  let title = titleFromMetadata || titleFromWelcome || surveyData.name;
 
-  // Add product name in title if it's Formbricks cloud
-  if (IS_FORMBRICKS_CLOUD) {
-    title = `${title} | Formbricks`;
-  } else if (project) {
-    // Since project name is not available in the returned type, we'll just use a generic name
-    title = `${title} | Survey`;
+  // Set description - priority: custom link metadata > default
+  const descriptionFromMetadata = metadata?.description
+    ? getLocalizedValue(metadata.description, langCode) || ""
+    : undefined;
+  let description = descriptionFromMetadata || "Please complete this survey.";
+
+  // Get OG image from link metadata if available
+  const ogImage = metadata?.ogImage;
+
+  if (!titleFromMetadata) {
+    if (IS_FORMBRICKS_CLOUD) {
+      title = `${title} | Formbricks`;
+    }
   }
 
   return {
     title,
     description,
-    survey,
+    survey: surveyData,
+    ogImage,
   };
 };
 
 /**
  * Generate Open Graph metadata for survey
  */
-export const getSurveyOpenGraphMetadata = (surveyId: string, surveyName: string): Metadata => {
-  const brandColor = getBrandColorForURL(COLOR_DEFAULTS.brandColor); // Default color
+export const getSurveyOpenGraphMetadata = (
+  surveyId: string,
+  surveyName: string,
+  surveyBrandColor?: string
+): Metadata => {
   const encodedName = getNameForURL(surveyName);
-
-  const ogImgURL = `/api/v1/og?brandColor=${brandColor}&name=${encodedName}`;
+  const brandColor = getBrandColorForURL(surveyBrandColor ?? COLOR_DEFAULTS.brandColor);
+  const ogImgURL = `/api/v1/client/og?brandColor=${brandColor}&name=${encodedName}`;
 
   return {
-    metadataBase: new URL(getSurveyDomain()),
+    metadataBase: new URL(getPublicDomain()),
     openGraph: {
       title: surveyName,
       description: "Thanks a lot for your time 🙏",

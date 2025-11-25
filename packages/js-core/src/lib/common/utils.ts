@@ -121,7 +121,11 @@ export const filterSurveys = (
   });
 
   if (!userId) {
-    return filteredSurveys;
+    // exclude surveys that have a segment with filters
+    return filteredSurveys.filter((survey) => {
+      const segmentFiltersLength = survey.segment?.filters.length ?? 0;
+      return segmentFiltersLength === 0;
+    });
   }
 
   if (!segments.length) {
@@ -183,8 +187,14 @@ export const getLanguageCode = (survey: TEnvironmentStateSurvey, language?: stri
   return selectedLanguage.language.code;
 };
 
+export const getSecureRandom = (): number => {
+  const u32 = new Uint32Array(1);
+  crypto.getRandomValues(u32);
+  return u32[0] / 2 ** 32; // Normalized to [0, 1)
+};
+
 export const shouldDisplayBasedOnPercentage = (displayPercentage: number): boolean => {
-  const randomNum = Math.floor(Math.random() * 10000) / 100;
+  const randomNum = Math.floor(getSecureRandom() * 10000) / 100;
   return randomNum <= displayPercentage;
 };
 
@@ -195,6 +205,8 @@ export const checkUrlMatch = (
   pageUrlValue: string,
   pageUrlRule: TActionClassPageUrlRule
 ): boolean => {
+  let regex: RegExp;
+
   switch (pageUrlRule) {
     case "exactMatch":
       return url === pageUrlValue;
@@ -208,17 +220,37 @@ export const checkUrlMatch = (
       return url !== pageUrlValue;
     case "notContains":
       return !url.includes(pageUrlValue);
+    case "matchesRegex":
+      try {
+        regex = new RegExp(pageUrlValue);
+      } catch {
+        // edge case: fail closed if the regex expression is invalid
+        return false;
+      }
+
+      return regex.test(url);
     default:
       return false;
   }
 };
 
-export const handleUrlFilters = (urlFilters: TActionClassNoCodeConfig["urlFilters"]): boolean => {
+export const handleUrlFilters = (
+  urlFilters: TActionClassNoCodeConfig["urlFilters"],
+  connector: "or" | "and" = "or"
+): boolean => {
   if (urlFilters.length === 0) {
     return true;
   }
 
   const windowUrl = window.location.href;
+
+  if (connector === "and") {
+    const isMatch = urlFilters.every((filter) => {
+      const match = checkUrlMatch(windowUrl, filter.value, filter.rule);
+      return match;
+    });
+    return isMatch;
+  }
 
   const isMatch = urlFilters.some((filter) => {
     const match = checkUrlMatch(windowUrl, filter.value, filter.rule);
@@ -276,7 +308,9 @@ export const evaluateNoCodeConfigClick = (
 
   if (cssSelector) {
     // Split selectors that start with a . or # including the . or #
-    const individualSelectors = cssSelector.split(/\s*(?=[.#])/);
+    const individualSelectors = cssSelector
+      .split(/(?=[.#])/) // split before each . or #
+      .map((sel) => sel.trim()); // remove leftover whitespace
     for (const selector of individualSelectors) {
       if (!targetElement.matches(selector)) {
         return false;
@@ -284,7 +318,8 @@ export const evaluateNoCodeConfigClick = (
     }
   }
 
-  const isValidUrl = handleUrlFilters(urlFilters);
+  const connector = action.noCodeConfig.urlFiltersConnector ?? "or";
+  const isValidUrl = handleUrlFilters(urlFilters, connector);
 
   if (!isValidUrl) return false;
 

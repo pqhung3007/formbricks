@@ -1,7 +1,7 @@
-import { cn } from "@/modules/ui/lib/utils";
 import { Slot } from "@radix-ui/react-slot";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRightIcon, EllipsisIcon } from "lucide-react";
 import * as React from "react";
+import { cn } from "@/modules/ui/lib/utils";
 
 const Breadcrumb = React.forwardRef<
   HTMLElement,
@@ -16,7 +16,7 @@ const BreadcrumbList = React.forwardRef<HTMLOListElement, React.ComponentPropsWi
     <ol
       ref={ref}
       className={cn(
-        "flex flex-wrap items-center gap-1.5 break-words text-sm text-slate-500 sm:gap-2.5 dark:text-slate-400",
+        "flex flex-wrap items-center gap-1.5 break-words text-sm text-slate-500 hover:text-slate-700",
         className
       )}
       {...props}
@@ -25,11 +25,25 @@ const BreadcrumbList = React.forwardRef<HTMLOListElement, React.ComponentPropsWi
 );
 BreadcrumbList.displayName = "BreadcrumbList";
 
-const BreadcrumbItem = React.forwardRef<HTMLLIElement, React.ComponentPropsWithoutRef<"li">>(
-  ({ className, ...props }, ref) => (
-    <li ref={ref} className={cn("inline-flex items-center gap-1.5", className)} {...props} />
-  )
-);
+const BreadcrumbItem = React.forwardRef<
+  HTMLLIElement,
+  React.ComponentPropsWithoutRef<"li"> & {
+    isActive?: boolean;
+    isHighlighted?: boolean;
+  }
+>(({ className, isActive, isHighlighted, ...props }, ref) => (
+  <li
+    ref={ref}
+    className={cn(
+      "inline-flex items-center gap-1.5 space-x-1 rounded-md px-1.5 py-1",
+      !isHighlighted && "hover:bg-white hover:outline hover:outline-slate-300",
+      isActive && "bg-slate-100 outline outline-slate-300",
+      isHighlighted && "bg-red-800 text-white outline hover:bg-red-700 hover:outline-red-800",
+      className
+    )}
+    {...props}
+  />
+));
 BreadcrumbItem.displayName = "BreadcrumbItem";
 
 const BreadcrumbLink = React.forwardRef<
@@ -40,13 +54,7 @@ const BreadcrumbLink = React.forwardRef<
 >(({ asChild, className, ...props }, ref) => {
   const Comp = asChild ? Slot : "a";
 
-  return (
-    <Comp
-      ref={ref}
-      className={cn("transition-colors hover:text-slate-950 dark:hover:text-slate-50", className)}
-      {...props}
-    />
-  );
+  return <Comp ref={ref} className={cn("hover:text-foreground transition-colors", className)} {...props} />;
 });
 BreadcrumbLink.displayName = "BreadcrumbLink";
 
@@ -54,10 +62,9 @@ const BreadcrumbPage = React.forwardRef<HTMLSpanElement, React.ComponentPropsWit
   ({ className, ...props }, ref) => (
     <span
       ref={ref}
-      role="link"
       aria-disabled="true"
       aria-current="page"
-      className={cn("font-normal text-slate-950 dark:text-slate-50", className)}
+      className={cn("text-foreground font-normal", className)}
       {...props}
     />
   )
@@ -65,34 +72,27 @@ const BreadcrumbPage = React.forwardRef<HTMLSpanElement, React.ComponentPropsWit
 BreadcrumbPage.displayName = "BreadcrumbPage";
 
 const BreadcrumbSeparator = ({ children, className, ...props }: React.ComponentProps<"li">) => (
-  <li
-    role="presentation"
-    aria-hidden="true"
-    className={cn("[&>svg]:h-3.5 [&>svg]:w-3.5", className)}
-    {...props}>
-    {children ?? <ChevronRight />}
+  <li aria-hidden="true" className={cn("[&>svg]:h-3.5 [&>svg]:w-3.5", className)} {...props}>
+    {children ?? <ChevronRightIcon />}
   </li>
 );
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator";
 
 const BreadcrumbEllipsis = ({ className, ...props }: React.ComponentProps<"span">) => (
-  <span
-    role="presentation"
-    aria-hidden="true"
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
-    {...props}>
-    <MoreHorizontal className="h-4 w-4" />
+  <span aria-hidden="true" className={cn("flex h-9 w-9 items-center justify-center", className)} {...props}>
+    <EllipsisIcon className="h-4 w-4" />
     <span className="sr-only">More</span>
   </span>
 );
+
 BreadcrumbEllipsis.displayName = "BreadcrumbElipssis";
 
 export {
   Breadcrumb,
-  BreadcrumbList,
+  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
+  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-  BreadcrumbEllipsis,
 };

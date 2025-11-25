@@ -1,6 +1,6 @@
-import { getTranslate } from "@/tolgee/server";
 import { TContactAttributeKey } from "@formbricks/types/contact-attribute-key";
 import { TSegment } from "@formbricks/types/segment";
+import { getTranslate } from "@/lingodotdev/server";
 import { SegmentTableDataRowContainer } from "./segment-table-data-row-container";
 
 type TSegmentTableProps = {
@@ -33,6 +33,7 @@ export const SegmentTable = async ({
         <>
           {segments.map((segment) => (
             <SegmentTableDataRowContainer
+              key={segment.id}
               currentSegment={segment}
               segments={segments}
               contactAttributeKeys={contactAttributeKeys}

@@ -1,20 +1,21 @@
 "use client";
 
-import { ACTION_TYPE_ICON_LOOKUP } from "@/app/(app)/environments/[environmentId]/actions/utils";
-import { getAccessFlags } from "@/lib/membership/utils";
-import { TTeamPermission } from "@/modules/ee/teams/project-teams/types/team";
-import { getTeamPermissionFlags } from "@/modules/ee/teams/utils/teams";
-import { AddActionModal } from "@/modules/survey/editor/components/add-action-modal";
-import { AdvancedOptionToggle } from "@/modules/ui/components/advanced-option-toggle";
-import { Button } from "@/modules/ui/components/button";
-import { Input } from "@/modules/ui/components/input";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ActionClass, OrganizationRole } from "@prisma/client";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { useTranslate } from "@tolgee/react";
 import { CheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TSurvey } from "@formbricks/types/surveys/types";
+import { getAccessFlags } from "@/lib/membership/utils";
+import { TTeamPermission } from "@/modules/ee/teams/project-teams/types/team";
+import { getTeamPermissionFlags } from "@/modules/ee/teams/utils/teams";
+import { ACTION_TYPE_ICON_LOOKUP } from "@/modules/projects/settings/(setup)/app-connection/utils";
+import { AddActionModal } from "@/modules/survey/editor/components/add-action-modal";
+import { ActionClassInfo } from "@/modules/ui/components/action-class-info";
+import { AdvancedOptionToggle } from "@/modules/ui/components/advanced-option-toggle";
+import { Button } from "@/modules/ui/components/button";
+import { Input } from "@/modules/ui/components/input";
 
 interface WhenToSendCardProps {
   localSurvey: TSurvey;
@@ -33,7 +34,7 @@ export const WhenToSendCard = ({
   membershipRole,
   projectPermission,
 }: WhenToSendCardProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(localSurvey.type === "app" ? true : false);
   const [isAddActionModalOpen, setAddActionModalOpen] = useState(false);
   const [actionClasses, setActionClasses] = useState<ActionClass[]>(propActionClasses);
@@ -155,7 +156,7 @@ export const WhenToSendCard = ({
           className="h-full w-full cursor-pointer rounded-lg hover:bg-slate-50"
           id="whenToSendCardTrigger">
           <div className="inline-flex px-4 py-4">
-            <div className="flex items-center pr-5 pl-2">
+            <div className="flex items-center pl-2 pr-5">
               {containsEmptyTriggers ? (
                 <div className="h-7 w-7 rounded-full border border-amber-500 bg-amber-50" />
               ) : (
@@ -178,7 +179,7 @@ export const WhenToSendCard = ({
         <Collapsible.CollapsibleContent className="flex flex-col" ref={parent}>
           <hr className="py-1 text-slate-600" />
 
-          <div className="px-3 pt-1 pb-3">
+          <div className="px-3 pb-3 pt-1">
             <div className="filter-scrollbar flex flex-col gap-4 overflow-auto rounded-lg border border-slate-300 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-800">
                 {t("environments.surveys.edit.trigger_survey_when_one_of_the_actions_is_fired")}
@@ -199,48 +200,7 @@ export const WhenToSendCard = ({
 
                           <h4 className="text-sm font-semibold text-slate-600">{trigger.actionClass.name}</h4>
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {trigger.actionClass.description && (
-                            <span className="mr-1">{trigger.actionClass.description}</span>
-                          )}
-                          {trigger.actionClass.type === "code" && (
-                            <span className="mr-1 border-l border-slate-400 pl-1 first:border-l-0 first:pl-0">
-                              {t("environments.surveys.edit.key")}: <b>{trigger.actionClass.key}</b>
-                            </span>
-                          )}
-                          {trigger.actionClass.type === "noCode" &&
-                            trigger.actionClass.noCodeConfig?.type === "click" &&
-                            trigger.actionClass.noCodeConfig?.elementSelector.cssSelector && (
-                              <span className="mr-1 border-l border-slate-400 pl-1 first:border-l-0 first:pl-0">
-                                {t("environments.surveys.edit.css_selector")}:{" "}
-                                <b>{trigger.actionClass.noCodeConfig?.elementSelector.cssSelector}</b>
-                              </span>
-                            )}
-                          {trigger.actionClass.type === "noCode" &&
-                            trigger.actionClass.noCodeConfig?.type === "click" &&
-                            trigger.actionClass.noCodeConfig?.elementSelector.innerHtml && (
-                              <span className="mr-1 border-l border-slate-400 pl-1 first:border-l-0 first:pl-0">
-                                {t("environments.surveys.edit.inner_text")}:{" "}
-                                <b>{trigger.actionClass.noCodeConfig?.elementSelector.innerHtml}</b>
-                              </span>
-                            )}
-                          {trigger.actionClass.type === "noCode" &&
-                          trigger.actionClass.noCodeConfig?.urlFilters &&
-                          trigger.actionClass.noCodeConfig.urlFilters.length > 0 ? (
-                            <span className="mr-1 border-l border-slate-400 pl-1 first:border-l-0 first:pl-0">
-                              {t("environments.surveys.edit.url_filters")}:{" "}
-                              {trigger.actionClass.noCodeConfig.urlFilters.map((urlFilter, index) => (
-                                <span key={index}>
-                                  {urlFilter.rule} <b>{urlFilter.value}</b>
-                                  {trigger.actionClass.type === "noCode" &&
-                                    index !==
-                                      (trigger.actionClass.noCodeConfig?.urlFilters?.length || 0) - 1 &&
-                                    ", "}
-                                </span>
-                              ))}
-                            </span>
-                          ) : null}
-                        </div>
+                        <ActionClassInfo actionClass={trigger.actionClass} />
                       </div>
                     </div>
                     <Trash2Icon
@@ -265,7 +225,7 @@ export const WhenToSendCard = ({
             </div>
 
             {/* Survey Display Settings */}
-            <div className="mt-8 mb-4 space-y-1 px-4">
+            <div className="mb-4 mt-8 space-y-1 px-4">
               <h3 className="font-semibold text-slate-800">
                 {t("environments.surveys.edit.survey_display_settings")}
               </h3>
@@ -282,9 +242,7 @@ export const WhenToSendCard = ({
                 "environments.surveys.edit.wait_a_few_seconds_after_the_trigger_before_showing_the_survey"
               )}
               childBorder={true}>
-              <label
-                htmlFor="triggerDelay"
-                className="flex w-full cursor-pointer items-center rounded-lg border bg-slate-50 p-4">
+              <div className="flex w-full cursor-pointer items-center rounded-lg border bg-slate-50 p-4">
                 <div>
                   <p className="text-sm font-semibold text-slate-700">
                     {t("environments.surveys.edit.wait")}
@@ -294,12 +252,12 @@ export const WhenToSendCard = ({
                       id="triggerDelay"
                       value={localSurvey.delay.toString()}
                       onChange={(e) => handleTriggerDelay(e)}
-                      className="mr-2 ml-2 inline w-16 bg-white text-center text-sm"
+                      className="ml-2 mr-2 inline w-16 bg-white text-center text-sm"
                     />
                     {t("environments.surveys.edit.seconds_before_showing_the_survey")}
                   </p>
                 </div>
-              </label>
+              </div>
             </AdvancedOptionToggle>
             <AdvancedOptionToggle
               htmlId="autoClose"

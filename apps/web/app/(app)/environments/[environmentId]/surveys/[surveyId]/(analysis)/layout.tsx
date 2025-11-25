@@ -1,8 +1,9 @@
+import { Metadata } from "next";
+import { getServerSession } from "next-auth";
+import { ResponseFilterProvider } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/components/response-filter-context";
 import { getResponseCountBySurveyId } from "@/lib/response/service";
 import { getSurvey } from "@/lib/survey/service";
 import { authOptions } from "@/modules/auth/lib/authOptions";
-import { Metadata } from "next";
-import { getServerSession } from "next-auth";
 
 type Props = {
   params: Promise<{ surveyId: string; environmentId: string }>;
@@ -25,7 +26,7 @@ export const generateMetadata = async (props: Props): Promise<Metadata> => {
 };
 
 const SurveyLayout = async ({ children }) => {
-  return <>{children}</>;
+  return <ResponseFilterProvider>{children}</ResponseFilterProvider>;
 };
 
 export default SurveyLayout;

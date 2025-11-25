@@ -1,22 +1,7 @@
-import { TGetFilter } from "@/modules/api/v2/types/api-filter";
 import { Prisma } from "@prisma/client";
 import { describe, expect, test } from "vitest";
-import { buildCommonFilterQuery, hashApiKey, pickCommonFilter } from "../utils";
-
-describe("hashApiKey", () => {
-  test("generate the correct sha256 hash for a given input", () => {
-    const input = "test";
-    const expectedHash = "fake-hash"; // mocked on the vitestSetup.ts file;
-    const result = hashApiKey(input);
-    expect(result).toEqual(expectedHash);
-  });
-
-  test("return a string with length 64", () => {
-    const input = "another-api-key";
-    const result = hashApiKey(input);
-    expect(result).toHaveLength(9); // mocked on the vitestSetup.ts file;;
-  });
-});
+import { TGetFilter } from "@/modules/api/v2/types/api-filter";
+import { buildCommonFilterQuery, pickCommonFilter } from "../utils";
 
 describe("pickCommonFilter", () => {
   test("picks the common filter fields correctly", () => {
@@ -27,6 +12,7 @@ describe("pickCommonFilter", () => {
       order: "asc",
       startDate: new Date("2023-01-01"),
       endDate: new Date("2023-12-31"),
+      filterDateField: "createdAt",
     } as TGetFilter;
     const result = pickCommonFilter(params);
     expect(result).toEqual(params);
@@ -42,6 +28,7 @@ describe("pickCommonFilter", () => {
       order: undefined,
       startDate: undefined,
       endDate: undefined,
+      filterDateField: undefined,
     });
   });
 
@@ -53,8 +40,9 @@ describe("pickCommonFilter", () => {
         endDate: new Date("2023-12-31"),
       } as TGetFilter;
       const result = buildCommonFilterQuery(query, params);
-      expect(result.where?.createdAt?.gte).toEqual(params.startDate);
-      expect(result.where?.createdAt?.lte).toEqual(params.endDate);
+      const createdAt = result.where?.createdAt as Prisma.DateTimeFilter | undefined;
+      expect(createdAt?.gte).toEqual(params.startDate);
+      expect(createdAt?.lte).toEqual(params.endDate);
     });
 
     test("applies sortBy and order when provided", () => {
@@ -83,6 +71,33 @@ describe("pickCommonFilter", () => {
       const params = {} as TGetFilter;
       const result = buildCommonFilterQuery(query, params);
       expect(result).toEqual({});
+    });
+
+    test("applies filterDateField with updatedAt when provided", () => {
+      const query: Prisma.WebhookFindManyArgs = { where: {} };
+      const params = {
+        startDate: new Date("2023-01-01"),
+        endDate: new Date("2023-12-31"),
+        filterDateField: "updatedAt",
+      } as TGetFilter;
+      const result = buildCommonFilterQuery(query, params);
+      const updatedAt = result.where?.updatedAt as Prisma.DateTimeFilter | undefined;
+      expect(updatedAt?.gte).toEqual(params.startDate);
+      expect(updatedAt?.lte).toEqual(params.endDate);
+      expect(result.where?.createdAt).toBeUndefined();
+    });
+
+    test("defaults to createdAt when filterDateField is not provided", () => {
+      const query: Prisma.WebhookFindManyArgs = { where: {} };
+      const params = {
+        startDate: new Date("2023-01-01"),
+        endDate: new Date("2023-12-31"),
+      } as TGetFilter;
+      const result = buildCommonFilterQuery(query, params);
+      const createdAt = result.where?.createdAt as Prisma.DateTimeFilter | undefined;
+      expect(createdAt?.gte).toEqual(params.startDate);
+      expect(createdAt?.lte).toEqual(params.endDate);
+      expect(result.where?.updatedAt).toBeUndefined();
     });
   });
 });

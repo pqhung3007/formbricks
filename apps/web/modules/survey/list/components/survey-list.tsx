@@ -1,17 +1,19 @@
 "use client";
 
-import { FORMBRICKS_SURVEYS_FILTERS_KEY_LS } from "@/lib/localStorage";
-import { getSurveysAction } from "@/modules/survey/list/actions";
-import { getFormattedFilters } from "@/modules/survey/list/lib/utils";
-import { TSurvey } from "@/modules/survey/list/types/surveys";
-import { Button } from "@/modules/ui/components/button";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useTranslate } from "@tolgee/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { wrapThrows } from "@formbricks/types/error-handlers";
 import { TProjectConfigChannel } from "@formbricks/types/project";
 import { TSurveyFilters } from "@formbricks/types/surveys/types";
 import { TUserLocale } from "@formbricks/types/user";
+import { FORMBRICKS_SURVEYS_FILTERS_KEY_LS } from "@/lib/localStorage";
+import { getSurveysAction } from "@/modules/survey/list/actions";
+import { initialFilters } from "@/modules/survey/list/lib/constants";
+import { getFormattedFilters } from "@/modules/survey/list/lib/utils";
+import { TSurvey } from "@/modules/survey/list/types/surveys";
+import { Button } from "@/modules/ui/components/button";
 import { SurveyCard } from "./survey-card";
 import { SurveyFilters } from "./survey-filters";
 import { SurveyLoading } from "./survey-loading";
@@ -19,38 +21,36 @@ import { SurveyLoading } from "./survey-loading";
 interface SurveysListProps {
   environmentId: string;
   isReadOnly: boolean;
-  surveyDomain: string;
+  publicDomain: string;
   userId: string;
   surveysPerPage: number;
   currentProjectChannel: TProjectConfigChannel;
   locale: TUserLocale;
 }
 
-export const initialFilters: TSurveyFilters = {
-  name: "",
-  createdBy: [],
-  status: [],
-  type: [],
-  sortBy: "relevance",
-};
-
 export const SurveysList = ({
   environmentId,
   isReadOnly,
-  surveyDomain,
+  publicDomain,
   userId,
   surveysPerPage: surveysLimit,
   currentProjectChannel,
   locale,
 }: SurveysListProps) => {
+  const router = useRouter();
   const [surveys, setSurveys] = useState<TSurvey[]>([]);
-  const [isFetching, setIsFetching] = useState(true);
-  const [hasMore, setHasMore] = useState<boolean>(true);
-  const { t } = useTranslate();
+  const [isFetching, setIsFetching] = useState(false);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
+  const { t } = useTranslation();
   const [surveyFilters, setSurveyFilters] = useState<TSurveyFilters>(initialFilters);
   const [isFilterInitialized, setIsFilterInitialized] = useState(false);
 
-  const filters = useMemo(() => getFormattedFilters(surveyFilters, userId), [surveyFilters, userId]);
+  const { name, createdBy, status, type, sortBy } = surveyFilters;
+  const filters = useMemo(
+    () => getFormattedFilters(surveyFilters, userId),
+    [name, JSON.stringify(createdBy), JSON.stringify(status), JSON.stringify(type), sortBy, userId]
+  );
   const [parent] = useAutoAnimate();
 
   useEffect(() => {
@@ -77,28 +77,30 @@ export const SurveysList = ({
   }, [surveyFilters, isFilterInitialized]);
 
   useEffect(() => {
-    if (isFilterInitialized) {
-      const fetchInitialSurveys = async () => {
-        setIsFetching(true);
-        const res = await getSurveysAction({
-          environmentId,
-          limit: surveysLimit,
-          offset: undefined,
-          filterCriteria: filters,
-        });
-        if (res?.data) {
-          if (res.data.length < surveysLimit) {
-            setHasMore(false);
-          } else {
-            setHasMore(true);
-          }
-          setSurveys(res.data);
-          setIsFetching(false);
+    // Wait for filters to be loaded from localStorage before fetching
+    if (!isFilterInitialized) return;
+
+    const fetchFilteredSurveys = async () => {
+      setIsFetching(true);
+      const res = await getSurveysAction({
+        environmentId,
+        limit: surveysLimit,
+        offset: undefined,
+        filterCriteria: filters,
+      });
+      if (res?.data) {
+        if (res.data.length < surveysLimit) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
         }
-      };
-      fetchInitialSurveys();
-    }
-  }, [environmentId, surveysLimit, filters, isFilterInitialized]);
+        setSurveys(res.data);
+        setIsFetching(false);
+      }
+    };
+    fetchFilteredSurveys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [environmentId, surveysLimit, filters, refreshTrigger, isFilterInitialized]);
 
   const fetchNextPage = useCallback(async () => {
     setIsFetching(true);
@@ -123,12 +125,15 @@ export const SurveysList = ({
   const handleDeleteSurvey = async (surveyId: string) => {
     const newSurveys = surveys.filter((survey) => survey.id !== surveyId);
     setSurveys(newSurveys);
+    if (newSurveys.length === 0) {
+      setIsFetching(true);
+      router.refresh();
+    }
   };
 
-  const handleDuplicateSurvey = async (survey: TSurvey) => {
-    const newSurveys = [survey, ...surveys];
-    setSurveys(newSurveys);
-  };
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger((prev) => !prev);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -156,10 +161,10 @@ export const SurveysList = ({
                   survey={survey}
                   environmentId={environmentId}
                   isReadOnly={isReadOnly}
-                  surveyDomain={surveyDomain}
-                  duplicateSurvey={handleDuplicateSurvey}
+                  publicDomain={publicDomain}
                   deleteSurvey={handleDeleteSurvey}
                   locale={locale}
+                  onSurveysCopied={triggerRefresh}
                 />
               );
             })}

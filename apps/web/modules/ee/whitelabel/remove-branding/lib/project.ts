@@ -1,15 +1,14 @@
 import "server-only";
-import { projectCache } from "@/lib/project/cache";
-import { validateInputs } from "@/lib/utils/validate";
-import {
-  TProjectUpdateBrandingInput,
-  ZProjectUpdateBrandingInput,
-} from "@/modules/ee/whitelabel/remove-branding/types/project";
 import { z } from "zod";
 import { prisma } from "@formbricks/database";
 import { logger } from "@formbricks/logger";
 import { ZId } from "@formbricks/types/common";
 import { ValidationError } from "@formbricks/types/errors";
+import { validateInputs } from "@/lib/utils/validate";
+import {
+  TProjectUpdateBrandingInput,
+  ZProjectUpdateBrandingInput,
+} from "@/modules/ee/whitelabel/remove-branding/types/project";
 
 export const updateProjectBranding = async (
   projectId: string,
@@ -17,7 +16,7 @@ export const updateProjectBranding = async (
 ): Promise<boolean> => {
   validateInputs([projectId, ZId], [inputProject, ZProjectUpdateBrandingInput]);
   try {
-    const updatedProject = await prisma.project.update({
+    await prisma.project.update({
       where: {
         id: projectId,
       },
@@ -33,18 +32,6 @@ export const updateProjectBranding = async (
           },
         },
       },
-    });
-
-    projectCache.revalidate({
-      id: updatedProject.id,
-      organizationId: updatedProject.organizationId,
-    });
-
-    updatedProject.environments.forEach((environment) => {
-      // revalidate environment cache
-      projectCache.revalidate({
-        environmentId: environment.id,
-      });
     });
 
     return true;

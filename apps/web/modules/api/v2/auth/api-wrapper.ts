@@ -1,17 +1,21 @@
-import { checkRateLimitAndThrowError } from "@/modules/api/v2/lib/rate-limit";
-import { formatZodError, handleApiError } from "@/modules/api/v2/lib/utils";
 import { ZodRawShape, z } from "zod";
 import { TAuthenticationApiKey } from "@formbricks/types/auth";
+import { TApiAuditLog } from "@/app/lib/api/with-api-logging";
+import { formatZodError, handleApiError } from "@/modules/api/v2/lib/utils";
+import { applyRateLimit } from "@/modules/core/rate-limit/helpers";
+import { rateLimitConfigs } from "@/modules/core/rate-limit/rate-limit-configs";
 import { authenticateRequest } from "./authenticate-request";
 
 export type HandlerFn<TInput = Record<string, unknown>> = ({
   authentication,
   parsedInput,
   request,
+  auditLog,
 }: {
   authentication: TAuthenticationApiKey;
   parsedInput: TInput;
   request: Request;
+  auditLog?: TApiAuditLog;
 }) => Promise<Response>;
 
 export type ExtendedSchemas = {
@@ -41,16 +45,23 @@ export const apiWrapper = async <S extends ExtendedSchemas>({
   externalParams,
   rateLimit = true,
   handler,
+  auditLog,
 }: {
   request: Request;
   schemas?: S;
   externalParams?: Promise<Record<string, any>>;
   rateLimit?: boolean;
   handler: HandlerFn<ParsedSchemas<S>>;
+  auditLog?: TApiAuditLog;
 }): Promise<Response> => {
   const authentication = await authenticateRequest(request);
   if (!authentication.ok) {
     return handleApiError(request, authentication.error);
+  }
+
+  if (auditLog) {
+    auditLog.userId = authentication.data.apiKeyId;
+    auditLog.organizationId = authentication.data.organizationId;
   }
 
   let parsedInput: ParsedSchemas<S> = {} as ParsedSchemas<S>;
@@ -94,11 +105,10 @@ export const apiWrapper = async <S extends ExtendedSchemas>({
   }
 
   if (rateLimit) {
-    const rateLimitResponse = await checkRateLimitAndThrowError({
-      identifier: authentication.data.hashedApiKey,
-    });
-    if (!rateLimitResponse.ok) {
-      return handleApiError(request, rateLimitResponse.error);
+    try {
+      await applyRateLimit(rateLimitConfigs.api.v2, authentication.data.apiKeyId);
+    } catch (error) {
+      return handleApiError(request, { type: "too_many_requests", details: error.message });
     }
   }
 
@@ -106,5 +116,6 @@ export const apiWrapper = async <S extends ExtendedSchemas>({
     authentication: authentication.data,
     parsedInput,
     request,
+    auditLog,
   });
 };

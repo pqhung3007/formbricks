@@ -1,21 +1,30 @@
+import { Prisma } from "@prisma/client";
+import { prisma } from "@formbricks/database";
+import { DatabaseError, ResourceNotFoundError } from "@formbricks/types/errors";
 import {
   TDisplayCreateInputV2,
   ZDisplayCreateInputV2,
 } from "@/app/api/v2/client/[environmentId]/displays/types/display";
-import { displayCache } from "@/lib/display/cache";
 import { validateInputs } from "@/lib/utils/validate";
-import { Prisma } from "@prisma/client";
-import { prisma } from "@formbricks/database";
-import { DatabaseError } from "@formbricks/types/errors";
 import { doesContactExist } from "./contact";
 
 export const createDisplay = async (displayInput: TDisplayCreateInputV2): Promise<{ id: string }> => {
   validateInputs([displayInput, ZDisplayCreateInputV2]);
 
-  const { environmentId, contactId, surveyId } = displayInput;
+  const { contactId, surveyId, environmentId } = displayInput;
 
   try {
     const contactExists = contactId ? await doesContactExist(contactId) : false;
+
+    const survey = await prisma.survey.findUnique({
+      where: {
+        id: surveyId,
+        environmentId,
+      },
+    });
+    if (!survey) {
+      throw new ResourceNotFoundError("Survey", surveyId);
+    }
 
     const display = await prisma.display.create({
       data: {
@@ -34,13 +43,6 @@ export const createDisplay = async (displayInput: TDisplayCreateInputV2): Promis
         }),
       },
       select: { id: true, contactId: true, surveyId: true },
-    });
-
-    displayCache.revalidate({
-      id: display.id,
-      contactId: display.contactId,
-      surveyId: display.surveyId,
-      environmentId,
     });
 
     return display;

@@ -1,15 +1,15 @@
 "use client";
 
+import { Project } from "@prisma/client";
+import { Variants, motion } from "framer-motion";
+import { Fragment, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { TSurvey, TSurveyType } from "@formbricks/types/surveys/types";
 import { ClientLogo } from "@/modules/ui/components/client-logo";
 import { MediaBackground } from "@/modules/ui/components/media-background";
 import { Modal } from "@/modules/ui/components/preview-survey/components/modal";
 import { ResetProgressButton } from "@/modules/ui/components/reset-progress-button";
 import { SurveyInline } from "@/modules/ui/components/survey";
-import { Project } from "@prisma/client";
-import { useTranslate } from "@tolgee/react";
-import { Variants, motion } from "framer-motion";
-import { Fragment, useRef, useState } from "react";
-import { TSurvey, TSurveyType } from "@formbricks/types/surveys/types";
 
 interface ThemeStylingPreviewSurveyProps {
   survey: TSurvey;
@@ -55,7 +55,7 @@ export const ThemeStylingPreviewSurvey = ({
   const [previewPosition] = useState("relative");
   const ContentRef = useRef<HTMLDivElement | null>(null);
   const [shrink] = useState(false);
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const { projectOverwrites } = survey || {};
 
   const previewScreenVariants: Variants = {
@@ -110,6 +110,10 @@ export const ThemeStylingPreviewSurvey = ({
 
   const isAppSurvey = previewType === "app";
 
+  // Create a unique key that includes both timestamp and preview type
+  // This ensures the survey remounts when switching between app and link
+  const surveyKey = `${previewType}-${surveyFormKey}`;
+
   const scrollToEditLogoSection = () => {
     const editLogoSection = document.getElementById("edit-logo");
     if (editLogoSection) {
@@ -160,7 +164,7 @@ export const ThemeStylingPreviewSurvey = ({
               previewMode="desktop"
               background={project.styling.cardBackgroundColor?.light}
               borderRadius={project.styling.roundness ?? 8}>
-              <Fragment key={surveyFormKey}>
+              <Fragment key={surveyKey}>
                 <SurveyInline
                   isPreviewMode={true}
                   survey={{ ...survey, type: "app" }}
@@ -180,12 +184,12 @@ export const ThemeStylingPreviewSurvey = ({
               ContentRef={ContentRef as React.MutableRefObject<HTMLDivElement> | null}
               isEditorView>
               {!project.styling?.isLogoHidden && (
-                <div className="absolute left-5 top-5" onClick={scrollToEditLogoSection}>
+                <button className="absolute left-5 top-5" onClick={scrollToEditLogoSection}>
                   <ClientLogo projectLogo={project.logo} previewSurvey />
-                </div>
+                </button>
               )}
               <div
-                key={surveyFormKey}
+                key={surveyKey}
                 className={`${project.logo?.url && !project.styling.isLogoHidden && !isFullScreenPreview ? "mt-12" : ""} z-0 w-full max-w-md rounded-lg p-4`}>
                 <SurveyInline
                   isPreviewMode={true}
@@ -205,17 +209,19 @@ export const ThemeStylingPreviewSurvey = ({
 
       {/* for toggling between mobile and desktop mode  */}
       <div className="mt-2 flex rounded-full border-2 border-slate-300 p-1">
-        <div
+        <button
+          type="button"
           className={`${previewType === "link" ? "rounded-full bg-slate-200" : ""} cursor-pointer px-3 py-1 text-sm`}
           onClick={() => setPreviewType("link")}>
           {t("common.link_survey")}
-        </div>
+        </button>
 
-        <div
+        <button
+          type="button"
           className={`${isAppSurvey ? "rounded-full bg-slate-200" : ""} cursor-pointer px-3 py-1 text-sm`}
           onClick={() => setPreviewType("app")}>
           {t("common.app_survey")}
-        </div>
+        </button>
       </div>
     </div>
   );

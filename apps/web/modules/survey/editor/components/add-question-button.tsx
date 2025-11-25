@@ -1,5 +1,12 @@
 "use client";
 
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { createId } from "@paralleldrive/cuid2";
+import { Project } from "@prisma/client";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import {
   getCXQuestionTypes,
@@ -7,13 +14,6 @@ import {
   getQuestionTypes,
   universalQuestionPresets,
 } from "@/modules/survey/lib/questions";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { createId } from "@paralleldrive/cuid2";
-import { Project } from "@prisma/client";
-import * as Collapsible from "@radix-ui/react-collapsible";
-import { useTranslate } from "@tolgee/react";
-import { PlusIcon } from "lucide-react";
-import { useState } from "react";
 
 interface AddQuestionButtonProps {
   addQuestion: (question: any) => void;
@@ -22,7 +22,7 @@ interface AddQuestionButtonProps {
 }
 
 export const AddQuestionButton = ({ addQuestion, project, isCxMode }: AddQuestionButtonProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
   const availableQuestionTypes = isCxMode ? getCXQuestionTypes(t) : getQuestionTypes(t);
@@ -38,7 +38,7 @@ export const AddQuestionButton = ({ addQuestion, project, isCxMode }: AddQuestio
       )}>
       <Collapsible.CollapsibleTrigger asChild className="group h-full w-full">
         <div className="inline-flex">
-          <div className="bg-brand-dark flex w-10 items-center justify-center rounded-l-lg group-aria-expanded:rounded-br group-aria-expanded:rounded-bl-none">
+          <div className="bg-brand-dark flex w-10 items-center justify-center rounded-l-lg group-aria-expanded:rounded-bl-none group-aria-expanded:rounded-br">
             <PlusIcon className="h-5 w-5 text-white" />
           </div>
           <div className="px-4 py-3">
@@ -68,7 +68,7 @@ export const AddQuestionButton = ({ addQuestion, project, isCxMode }: AddQuestio
             onMouseEnter={() => setHoveredQuestionId(questionType.id)}
             onMouseLeave={() => setHoveredQuestionId(null)}>
             <div className="flex items-center">
-              <questionType.icon className="text-brand-dark mr-2 -ml-0.5 h-4 w-4" aria-hidden="true" />
+              <questionType.icon className="text-brand-dark -ml-0.5 mr-2 h-4 w-4" aria-hidden="true" />
               {questionType.label}
             </div>
             <div

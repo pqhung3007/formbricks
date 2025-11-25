@@ -1,17 +1,5 @@
 "use client";
 
-import { ResponseCardModal } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseCardModal";
-import { ResponseTableCell } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseTableCell";
-import { generateResponseTableColumns } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseTableColumns";
-import { deleteResponseAction } from "@/modules/analysis/components/SingleResponseCard/actions";
-import { Button } from "@/modules/ui/components/button";
-import {
-  DataTableHeader,
-  DataTableSettingsModal,
-  DataTableToolbar,
-} from "@/modules/ui/components/data-table";
-import { Skeleton } from "@/modules/ui/components/skeleton";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/modules/ui/components/table";
 import {
   DndContext,
   type DragEndEvent,
@@ -25,30 +13,56 @@ import {
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import * as Sentry from "@sentry/nextjs";
 import { VisibilityState, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useTranslate } from "@tolgee/react";
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { TEnvironment } from "@formbricks/types/environment";
-import { TResponse, TResponseTableData } from "@formbricks/types/responses";
+import { TSurveyQuota } from "@formbricks/types/quota";
+import { TResponseTableData, TResponseWithQuotas } from "@formbricks/types/responses";
 import { TSurvey } from "@formbricks/types/surveys/types";
 import { TTag } from "@formbricks/types/tags";
-import { TUser } from "@formbricks/types/user";
-import { TUserLocale } from "@formbricks/types/user";
+import { TUser, TUserLocale } from "@formbricks/types/user";
+import { ResponseCardModal } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseCardModal";
+import { ResponseTableCell } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseTableCell";
+import { generateResponseTableColumns } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/(analysis)/responses/components/ResponseTableColumns";
+import { getResponsesDownloadUrlAction } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/actions";
+import { downloadResponsesFile } from "@/app/(app)/environments/[environmentId]/surveys/[surveyId]/utils";
+import { deleteResponseAction } from "@/modules/analysis/components/SingleResponseCard/actions";
+import { Button } from "@/modules/ui/components/button";
+import {
+  DataTableHeader,
+  DataTableSettingsModal,
+  DataTableToolbar,
+} from "@/modules/ui/components/data-table";
+import { Skeleton } from "@/modules/ui/components/skeleton";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/modules/ui/components/table";
+
+const SkeletonCell = () => (
+  <Skeleton className="w-full">
+    <div className="h-6"></div>
+  </Skeleton>
+);
 
 interface ResponseTableProps {
   data: TResponseTableData[];
   survey: TSurvey;
-  responses: TResponse[] | null;
+  responses: TResponseWithQuotas[] | null;
   environment: TEnvironment;
   user?: TUser;
   environmentTags: TTag[];
   isReadOnly: boolean;
   fetchNextPage: () => void;
   hasMore: boolean;
-  deleteResponses: (responseIds: string[]) => void;
-  updateResponse: (responseId: string, updatedResponse: TResponse) => void;
+  updateResponseList: (responseIds: string[]) => void;
+  updateResponse: (responseId: string, updatedResponse: TResponseWithQuotas) => void;
   isFetchingFirstPage: boolean;
   locale: TUserLocale;
+  isQuotasAllowed: boolean;
+  quotas: TSurveyQuota[];
+  selectedResponseId: string | null;
+  setSelectedResponseId: (id: string | null) => void;
 }
 
 export const ResponseTable = ({
@@ -61,23 +75,30 @@ export const ResponseTable = ({
   isReadOnly,
   fetchNextPage,
   hasMore,
-  deleteResponses,
+  updateResponseList,
   updateResponse,
   isFetchingFirstPage,
   locale,
+  isQuotasAllowed,
+  quotas,
+  selectedResponseId,
+  setSelectedResponseId,
 }: ResponseTableProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
   const [isTableSettingsModalOpen, setIsTableSettingsModalOpen] = useState(false);
-  const [selectedResponseId, setSelectedResponseId] = useState<string | null>(null);
   const selectedResponse = responses?.find((response) => response.id === selectedResponseId) ?? null;
   const [isExpanded, setIsExpanded] = useState<boolean | null>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [parent] = useAutoAnimate();
 
+  const showQuotasColumn = isQuotasAllowed && quotas.length > 0;
   // Generate columns
-  const columns = generateResponseTableColumns(survey, isExpanded ?? false, isReadOnly, t);
+  const columns = useMemo(
+    () => generateResponseTableColumns(survey, isExpanded ?? false, isReadOnly, t, showQuotasColumn),
+    [survey, isExpanded, isReadOnly, t, showQuotasColumn]
+  );
 
   // Save settings to localStorage when they change
   useEffect(() => {
@@ -101,19 +122,22 @@ export const ResponseTable = ({
 
   // Memoize table data and columns
   const tableData: TResponseTableData[] = useMemo(
-    () => (isFetchingFirstPage ? Array(10).fill({}) : data),
+    () =>
+      isFetchingFirstPage
+        ? Array.from(
+            { length: 10 },
+            (_, index) => ({ responseId: `skeleton-${index}` }) as TResponseTableData
+          )
+        : data,
     [data, isFetchingFirstPage]
   );
+
   const tableColumns = useMemo(
     () =>
       isFetchingFirstPage
         ? columns.map((column) => ({
             ...column,
-            cell: () => (
-              <Skeleton className="w-full">
-                <div className="h-6"></div>
-              </Skeleton>
-            ),
+            cell: SkeletonCell,
           }))
         : columns,
     [columns, isFetchingFirstPage]
@@ -176,8 +200,28 @@ export const ResponseTable = ({
     }
   };
 
-  const deleteResponse = async (responseId: string) => {
-    await deleteResponseAction({ responseId });
+  const deleteResponse = async (responseId: string, params?: { decrementQuotas?: boolean }) => {
+    await deleteResponseAction({ responseId, decrementQuotas: params?.decrementQuotas ?? false });
+  };
+
+  // Handle downloading selected responses
+  const downloadSelectedRows = async (responseIds: string[], format: "csv" | "xlsx") => {
+    try {
+      const downloadResponse = await getResponsesDownloadUrlAction({
+        surveyId: survey.id,
+        format: format,
+        filterCriteria: { responseIds },
+      });
+
+      if (downloadResponse?.data) {
+        downloadResponsesFile(downloadResponse.data.fileName, downloadResponse.data.fileContents, format);
+      } else {
+        toast.error(t("environments.surveys.responses.error_downloading_responses"));
+      }
+    } catch (error) {
+      Sentry.captureException(error);
+      toast.error(t("environments.surveys.responses.error_downloading_responses"));
+    }
   };
 
   return (
@@ -193,9 +237,11 @@ export const ResponseTable = ({
           setIsTableSettingsModalOpen={setIsTableSettingsModalOpen}
           isExpanded={isExpanded ?? false}
           table={table}
-          deleteRows={deleteResponses}
+          updateRowList={updateResponseList}
           type="response"
           deleteAction={deleteResponse}
+          downloadRowsAction={downloadSelectedRows}
+          isQuotasAllowed={isQuotasAllowed}
         />
         <div className="w-fit max-w-full overflow-hidden overflow-x-auto rounded-xl border border-slate-200">
           <div className="w-full overflow-x-auto">
@@ -215,8 +261,8 @@ export const ResponseTable = ({
                   </TableRow>
                 ))}
               </TableHeader>
-
-              <TableBody ref={parent}>
+              {/* disable auto animation if there are more than 200 responses for performance optimizations  */}
+              <TableBody ref={responses && responses.length > 200 ? undefined : parent}>
                 {table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
@@ -229,7 +275,6 @@ export const ResponseTable = ({
                         row={row}
                         isExpanded={isExpanded ?? false}
                         setSelectedResponseId={setSelectedResponseId}
-                        responses={responses}
                       />
                     ))}
                   </TableRow>
@@ -270,7 +315,7 @@ export const ResponseTable = ({
             environmentTags={environmentTags}
             isReadOnly={isReadOnly}
             updateResponse={updateResponse}
-            deleteResponses={deleteResponses}
+            updateResponseList={updateResponseList}
             setSelectedResponseId={setSelectedResponseId}
             selectedResponseId={selectedResponseId}
             open={selectedResponse !== null}

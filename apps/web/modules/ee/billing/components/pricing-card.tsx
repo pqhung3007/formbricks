@@ -1,26 +1,17 @@
 "use client";
 
+import { CheckIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { TOrganization, TOrganizationBillingPeriod } from "@formbricks/types/organizations";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/modules/ui/components/badge";
 import { Button } from "@/modules/ui/components/button";
 import { ConfirmationModal } from "@/modules/ui/components/confirmation-modal";
-import { useTranslate } from "@tolgee/react";
-import { CheckIcon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { TOrganization, TOrganizationBillingPeriod } from "@formbricks/types/organizations";
+import { TPricingPlan } from "../api/lib/constants";
 
 interface PricingCardProps {
-  plan: {
-    id: string;
-    name: string;
-    featured: boolean;
-    price: {
-      monthly: string;
-      yearly: string;
-    };
-    mainFeatures: string[];
-    href: string;
-  };
+  plan: TPricingPlan;
   planPeriod: TOrganizationBillingPeriod;
   organization: TOrganization;
   onUpgrade: () => Promise<void>;
@@ -28,8 +19,7 @@ interface PricingCardProps {
   projectFeatureKeys: {
     FREE: string;
     STARTUP: string;
-    SCALE: string;
-    ENTERPRISE: string;
+    CUSTOM: string;
   };
 }
 
@@ -41,19 +31,23 @@ export const PricingCard = ({
   organization,
   projectFeatureKeys,
 }: PricingCardProps) => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+
+  const displayPrice = (() => {
+    if (plan.id === projectFeatureKeys.CUSTOM) {
+      return plan.price.monthly;
+    }
+    return planPeriod === "monthly" ? plan.price.monthly : plan.price.yearly;
+  })();
 
   const isCurrentPlan = useMemo(() => {
     if (organization.billing.plan === projectFeatureKeys.FREE && plan.id === projectFeatureKeys.FREE) {
       return true;
     }
 
-    if (
-      organization.billing.plan === projectFeatureKeys.ENTERPRISE &&
-      plan.id === projectFeatureKeys.ENTERPRISE
-    ) {
+    if (organization.billing.plan === projectFeatureKeys.CUSTOM && plan.id === projectFeatureKeys.CUSTOM) {
       return true;
     }
 
@@ -63,7 +57,7 @@ export const PricingCard = ({
     organization.billing.plan,
     plan.id,
     planPeriod,
-    projectFeatureKeys.ENTERPRISE,
+    projectFeatureKeys.CUSTOM,
     projectFeatureKeys.FREE,
   ]);
 
@@ -72,18 +66,33 @@ export const PricingCard = ({
       return null;
     }
 
-    if (plan.id !== projectFeatureKeys.ENTERPRISE && plan.id !== projectFeatureKeys.FREE) {
+    if (plan.id === projectFeatureKeys.CUSTOM) {
+      return (
+        <Button
+          variant="outline"
+          loading={loading}
+          onClick={() => {
+            window.open(plan.href, "_blank", "noopener,noreferrer");
+          }}
+          className="flex justify-center bg-white">
+          {plan.CTA ?? t("common.request_pricing")}
+        </Button>
+      );
+    }
+
+    if (plan.id === projectFeatureKeys.STARTUP) {
       if (organization.billing.plan === projectFeatureKeys.FREE) {
         return (
           <Button
             loading={loading}
+            variant="default"
             onClick={async () => {
               setLoading(true);
               await onUpgrade();
               setLoading(false);
             }}
             className="flex justify-center">
-            {t("common.start_free_trial")}
+            {plan.CTA ?? t("common.start_free_trial")}
           </Button>
         );
       }
@@ -92,7 +101,7 @@ export const PricingCard = ({
         <Button
           loading={loading}
           onClick={() => {
-            setUpgradeModalOpen(true);
+            setContactModalOpen(true);
           }}
           className="flex justify-center">
           {t("environments.settings.billing.switch_plan")}
@@ -100,15 +109,20 @@ export const PricingCard = ({
       );
     }
 
-    return <></>;
+    return null;
   }, [
     isCurrentPlan,
     loading,
     onUpgrade,
     organization.billing.plan,
+    plan.CTA,
+    plan.featured,
+    plan.href,
     plan.id,
-    projectFeatureKeys.ENTERPRISE,
+    projectFeatureKeys.CUSTOM,
     projectFeatureKeys.FREE,
+    projectFeatureKeys.STARTUP,
+    t,
   ]);
 
   return (
@@ -126,9 +140,9 @@ export const PricingCard = ({
             id={plan.id}
             className={cn(
               plan.featured ? "text-slate-900" : "text-slate-800",
-              "text-sm leading-6 font-semibold"
+              "text-sm font-semibold leading-6"
             )}>
-            {t(plan.name)}
+            {plan.name}
           </h2>
           {isCurrentPlan && (
             <Badge type="success" size="normal" text={t("environments.settings.billing.current_plan")} />
@@ -141,13 +155,9 @@ export const PricingCard = ({
                 plan.featured ? "text-slate-900" : "text-slate-800",
                 "text-4xl font-bold tracking-tight"
               )}>
-              {plan.id !== projectFeatureKeys.ENTERPRISE
-                ? planPeriod === "monthly"
-                  ? plan.price.monthly
-                  : plan.price.yearly
-                : t(plan.price.monthly)}
+              {displayPrice}
             </p>
-            {plan.name !== "Enterprise" && (
+            {plan.id !== projectFeatureKeys.CUSTOM && (
               <div className="text-sm leading-5">
                 <p className={plan.featured ? "text-slate-700" : "text-slate-600"}>
                   / {planPeriod === "monthly" ? "Month" : "Year"}
@@ -160,27 +170,19 @@ export const PricingCard = ({
 
           {plan.id !== projectFeatureKeys.FREE && isCurrentPlan && (
             <Button
-              variant="secondary"
               loading={loading}
               onClick={async () => {
                 setLoading(true);
                 await onManageSubscription();
                 setLoading(false);
               }}
-              className="flex justify-center">
+              className="flex justify-center bg-[#635bff]">
               {t("environments.settings.billing.manage_subscription")}
-            </Button>
-          )}
-
-          {organization.billing.plan !== plan.id && plan.id === projectFeatureKeys.ENTERPRISE && (
-            <Button loading={loading} onClick={() => onUpgrade()} className="flex justify-center">
-              {t("environments.settings.billing.contact_us")}
             </Button>
           )}
         </div>
         <div className="mt-8 flow-root sm:mt-10">
           <ul
-            role="list"
             className={cn(
               plan.featured
                 ? "divide-slate-900/5 border-slate-900/5 text-slate-600"
@@ -193,8 +195,7 @@ export const PricingCard = ({
                   className={cn(plan.featured ? "text-brand-dark" : "text-slate-500", "h-6 w-5 flex-none")}
                   aria-hidden="true"
                 />
-
-                {t(mainFeature)}
+                {mainFeature}
               </li>
             ))}
           </ul>
@@ -202,28 +203,13 @@ export const PricingCard = ({
       </div>
 
       <ConfirmationModal
-        title={t("environments.settings.billing.switch_plan")}
-        buttonText={t("common.confirm")}
-        onConfirm={async () => {
-          setLoading(true);
-          await onUpgrade();
-          setLoading(false);
-          setUpgradeModalOpen(false);
-        }}
-        open={upgradeModalOpen}
-        setOpen={setUpgradeModalOpen}
-        text={t("environments.settings.billing.switch_plan_confirmation_text", {
-          plan: t(plan.name),
-          price: planPeriod === "monthly" ? plan.price.monthly : plan.price.yearly,
-          period:
-            planPeriod === "monthly"
-              ? t("environments.settings.billing.per_month")
-              : t("environments.settings.billing.per_year"),
-        })}
+        title="Please reach out to us"
+        open={contactModalOpen}
+        setOpen={setContactModalOpen}
+        onConfirm={() => setContactModalOpen(false)}
+        buttonText="Close"
         buttonVariant="default"
-        buttonLoading={loading}
-        closeOnOutsideClick={false}
-        hideCloseButton
+        body="To switch your billing rhythm, please reach out to hola@formbricks.com"
       />
     </div>
   );

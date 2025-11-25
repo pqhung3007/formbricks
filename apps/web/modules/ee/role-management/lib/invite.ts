@@ -1,9 +1,8 @@
-import { inviteCache } from "@/lib/cache/invite";
-import { type TInviteUpdateInput } from "@/modules/ee/role-management/types/invites";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@formbricks/database";
 import { PrismaErrorType } from "@formbricks/database/types/error";
 import { ResourceNotFoundError } from "@formbricks/types/errors";
+import { type TInviteUpdateInput } from "@/modules/ee/role-management/types/invites";
 
 export const updateInvite = async (inviteId: string, data: TInviteUpdateInput): Promise<boolean> => {
   try {
@@ -15,11 +14,6 @@ export const updateInvite = async (inviteId: string, data: TInviteUpdateInput): 
     if (invite === null) {
       throw new ResourceNotFoundError("Invite", inviteId);
     }
-
-    inviteCache.revalidate({
-      id: invite.id,
-      organizationId: invite.organizationId,
-    });
 
     return true;
   } catch (error) {

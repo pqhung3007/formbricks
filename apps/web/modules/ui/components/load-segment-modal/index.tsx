@@ -1,14 +1,14 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { formatDate, timeSinceDate } from "@/lib/time";
-import { Modal } from "@/modules/ui/components/modal";
-import { useTranslate } from "@tolgee/react";
 import { Loader2, UsersIcon } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { TSegment, ZSegmentFilters } from "@formbricks/types/segment";
 import { TSurvey } from "@formbricks/types/surveys/types";
+import { cn } from "@/lib/cn";
+import { formatDate, timeSinceDate } from "@/lib/time";
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/modules/ui/components/dialog";
 
 interface SegmentDetailProps {
   segment: TSegment;
@@ -73,10 +73,10 @@ const SegmentDetail = ({
   };
 
   return (
-    <div
+    <button
       key={segment.id}
       className={cn(
-        "relative mt-1 grid h-16 cursor-pointer grid-cols-5 content-center rounded-lg hover:bg-slate-100",
+        "relative mt-1 grid h-16 w-full cursor-pointer grid-cols-5 content-center rounded-lg hover:bg-slate-100",
         currentSegment.id === segment.id && "pointer-events-none bg-slate-100 opacity-60"
       )}
       onClick={async () => {
@@ -112,7 +112,7 @@ const SegmentDetail = ({
       <div className="whitespace-wrap col-span-1 my-auto hidden text-center text-sm text-slate-500 sm:block">
         <div className="ph-no-capture text-slate-900">{formatDate(segment.createdAt)}</div>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -140,48 +140,55 @@ export const LoadSegmentModal = ({
   const handleResetState = () => {
     setOpen(false);
   };
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const segmentsArray = segments?.filter((segment) => !segment.isPrivate);
 
   return (
-    <Modal
+    <Dialog
       open={open}
-      setOpen={() => {
-        handleResetState();
-      }}
-      title={t("environments.surveys.edit.load_segment")}
-      size="lg">
-      <>
-        {!segmentsArray?.length ? (
-          <div className="group">
-            <div className="flex h-16 w-full flex-col items-center justify-center rounded-lg text-slate-700">
-              {t("environments.surveys.edit.you_have_not_created_a_segment_yet")}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            <div>
-              <div className="grid h-12 grid-cols-5 content-center rounded-lg bg-slate-100 text-left text-sm font-semibold text-slate-900">
-                <div className="col-span-3 pl-6">{t("common.segment")}</div>
-                <div className="col-span-1 hidden text-center sm:block">{t("common.updated_at")}</div>
-                <div className="col-span-1 hidden text-center sm:block">{t("common.created_at")}</div>
-              </div>
+      onOpenChange={(open) => {
+        if (!open) {
+          handleResetState();
+        }
+      }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("environments.surveys.edit.load_segment")}</DialogTitle>
+        </DialogHeader>
 
-              {segmentsArray.map((segment) => (
-                <SegmentDetail
-                  segment={segment}
-                  setIsSegmentEditorOpen={setIsSegmentEditorOpen}
-                  setOpen={setOpen}
-                  setSegment={setSegment}
-                  onSegmentLoad={onSegmentLoad}
-                  surveyId={surveyId}
-                  currentSegment={currentSegment}
-                />
-              ))}
+        <DialogBody>
+          {!segmentsArray?.length ? (
+            <div className="group">
+              <div className="flex h-16 w-full flex-col items-center justify-center rounded-md text-slate-700">
+                {t("environments.surveys.edit.you_have_not_created_a_segment_yet")}
+              </div>
             </div>
-          </div>
-        )}
-      </>
-    </Modal>
+          ) : (
+            <div className="flex flex-col">
+              <div>
+                <div className="grid h-12 grid-cols-5 content-center rounded-lg bg-slate-100 text-left text-sm font-semibold text-slate-900">
+                  <div className="col-span-3 pl-6">{t("common.segment")}</div>
+                  <div className="col-span-1 hidden text-center sm:block">{t("common.updated_at")}</div>
+                  <div className="col-span-1 hidden text-center sm:block">{t("common.created_at")}</div>
+                </div>
+
+                {segmentsArray.map((segment) => (
+                  <SegmentDetail
+                    key={segment.id}
+                    segment={segment}
+                    setIsSegmentEditorOpen={setIsSegmentEditorOpen}
+                    setOpen={setOpen}
+                    setSegment={setSegment}
+                    onSegmentLoad={onSegmentLoad}
+                    surveyId={surveyId}
+                    currentSegment={currentSegment}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 };

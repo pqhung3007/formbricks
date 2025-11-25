@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { SettingsCard } from "@/app/(app)/environments/[environmentId]/settings/components/SettingsCard";
 import { cn } from "@/lib/cn";
 import { ProjectConfigNavigation } from "@/modules/projects/settings/components/project-config-navigation";
@@ -10,18 +11,17 @@ import { PageContentWrapper } from "@/modules/ui/components/page-content-wrapper
 import { PageHeader } from "@/modules/ui/components/page-header";
 import { RadioGroup, RadioGroupItem } from "@/modules/ui/components/radio-group";
 import { Switch } from "@/modules/ui/components/switch";
-import { useTranslate } from "@tolgee/react";
-
-const placements = [
-  { name: "common.bottom_right", value: "bottomRight", disabled: false },
-  { name: "common.top_right", value: "topRight", disabled: false },
-  { name: "common.top_left", value: "topLeft", disabled: false },
-  { name: "common.bottom_left", value: "bottomLeft", disabled: false },
-  { name: "common.centered_modal", value: "center", disabled: false },
-];
 
 export const ProjectLookSettingsLoading = () => {
-  const { t } = useTranslate();
+  const { t } = useTranslation();
+
+  const placements = [
+    { name: t("common.bottom_right"), value: "bottomRight", disabled: false },
+    { name: t("common.top_right"), value: "topRight", disabled: false },
+    { name: t("common.top_left"), value: "topLeft", disabled: false },
+    { name: t("common.bottom_left"), value: "bottomLeft", disabled: false },
+    { name: t("common.centered_modal"), value: "center", disabled: false },
+  ];
   return (
     <PageContentWrapper>
       <PageHeader pageTitle={t("common.project_configuration")}>
@@ -140,7 +140,7 @@ export const ProjectLookSettingsLoading = () => {
                     className={cn(
                       placement.disabled ? "cursor-not-allowed text-slate-500" : "text-slate-900"
                     )}>
-                    {t(placement.name)}
+                    {placement.name}
                   </Label>
                 </div>
               ))}
@@ -149,7 +149,7 @@ export const ProjectLookSettingsLoading = () => {
               <div className={cn("absolute bottom-3 h-16 w-16 rounded bg-slate-700 sm:right-3")}></div>
             </div>
           </div>
-          <Button className="pointer-events-none mt-4 animate-pulse cursor-not-allowed bg-slate-200 select-none">
+          <Button className="pointer-events-none mt-4 animate-pulse cursor-not-allowed select-none bg-slate-200">
             {t("common.loading")}
           </Button>
         </div>
@@ -159,7 +159,7 @@ export const ProjectLookSettingsLoading = () => {
         title="Formbricks Signature"
         description="We love your support but understand if you toggle it off.">
         <div className="w-full items-center">
-          <div className="pointer-events-none flex cursor-not-allowed items-center space-x-2 select-none">
+          <div className="pointer-events-none flex cursor-not-allowed select-none items-center space-x-2">
             <Switch id="signature" checked={false} />
             <Label htmlFor="signature">{t("environments.project.look.show_powered_by_formbricks")}</Label>
           </div>

@@ -1,18 +1,21 @@
 "use client";
 
-import { cn } from "@/lib/cn";
-import { SurveyVariablesCardItem } from "@/modules/survey/editor/components/survey-variables-card-item";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { useTranslate } from "@tolgee/react";
 import { FileDigitIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { TSurveyQuota } from "@formbricks/types/quota";
 import { TSurvey, TSurveyQuestionId } from "@formbricks/types/surveys/types";
+import { cn } from "@/lib/cn";
+import { OptionIds } from "@/modules/survey/editor/components/option-ids";
+import { SurveyVariablesCardItem } from "@/modules/survey/editor/components/survey-variables-card-item";
 
 interface SurveyVariablesCardProps {
   localSurvey: TSurvey;
   setLocalSurvey: (survey: TSurvey) => void;
   activeQuestionId: TSurveyQuestionId | null;
   setActiveQuestionId: (id: TSurveyQuestionId | null) => void;
+  quotas: TSurveyQuota[];
 }
 
 const variablesCardId = `fb-variables-${Date.now()}`;
@@ -22,13 +25,15 @@ export const SurveyVariablesCard = ({
   setLocalSurvey,
   activeQuestionId,
   setActiveQuestionId,
+  quotas,
 }: SurveyVariablesCardProps) => {
   const open = activeQuestionId === variablesCardId;
-  const { t } = useTranslate();
+  const { t } = useTranslation();
   const [parent] = useAutoAnimate();
 
   const setOpenState = (state: boolean) => {
     if (state) {
+      // NOSONAR // This is ok for setOpenState
       setActiveQuestionId(variablesCardId);
     } else {
       setActiveQuestionId(null);
@@ -40,7 +45,7 @@ export const SurveyVariablesCard = ({
       <div
         className={cn(
           open ? "bg-slate-50" : "bg-white group-hover:bg-slate-50",
-          "flex w-10 items-center justify-center rounded-l-lg border-t border-b border-l group-aria-expanded:rounded-bl-none"
+          "flex w-10 items-center justify-center rounded-l-lg border-b border-l border-t group-aria-expanded:rounded-bl-none"
         )}>
         <div className="flex w-full justify-center">
           <FileDigitIcon className="h-4 w-4" />
@@ -71,16 +76,28 @@ export const SurveyVariablesCard = ({
                   variable={variable}
                   localSurvey={localSurvey}
                   setLocalSurvey={setLocalSurvey}
+                  quotas={quotas}
                 />
               ))
             ) : (
-              <p className="mt-2 text-sm text-slate-500 italic">
+              <p className="mt-2 text-sm italic text-slate-500">
                 {t("environments.surveys.edit.no_variables_yet_add_first_one_below")}
               </p>
             )}
           </div>
 
-          <SurveyVariablesCardItem mode="create" localSurvey={localSurvey} setLocalSurvey={setLocalSurvey} />
+          <SurveyVariablesCardItem
+            mode="create"
+            localSurvey={localSurvey}
+            setLocalSurvey={setLocalSurvey}
+            quotas={quotas}
+          />
+
+          {localSurvey.variables.length > 0 && (
+            <div className="mt-6">
+              <OptionIds type="variables" variables={localSurvey.variables} />
+            </div>
+          )}
         </Collapsible.CollapsibleContent>
       </Collapsible.Root>
     </div>

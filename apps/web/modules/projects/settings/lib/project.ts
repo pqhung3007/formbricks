@@ -1,10 +1,4 @@
 import "server-only";
-import { isS3Configured } from "@/lib/constants";
-import { environmentCache } from "@/lib/environment/cache";
-import { createEnvironment } from "@/lib/environment/service";
-import { projectCache } from "@/lib/project/cache";
-import { deleteLocalFilesByEnvironmentId, deleteS3FilesByEnvironmentId } from "@/lib/storage/service";
-import { validateInputs } from "@/lib/utils/validate";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@formbricks/database";
@@ -13,6 +7,9 @@ import { logger } from "@formbricks/logger";
 import { ZId, ZString } from "@formbricks/types/common";
 import { DatabaseError, InvalidInputError, ValidationError } from "@formbricks/types/errors";
 import { TProject, TProjectUpdateInput, ZProject, ZProjectUpdateInput } from "@formbricks/types/project";
+import { createEnvironment } from "@/lib/environment/service";
+import { validateInputs } from "@/lib/utils/validate";
+import { deleteFilesByEnvironmentId } from "@/modules/storage/service";
 
 const selectProject = {
   id: true,
@@ -63,18 +60,6 @@ export const updateProject = async (
   try {
     const project = ZProject.parse(updatedProject);
 
-    projectCache.revalidate({
-      id: project.id,
-      organizationId: project.organizationId,
-    });
-
-    project.environments.forEach((environment) => {
-      // revalidate environment cache
-      projectCache.revalidate({
-        environmentId: environment.id,
-      });
-    });
-
     return project;
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -119,11 +104,6 @@ export const createProject = async (
       });
     }
 
-    projectCache.revalidate({
-      id: project.id,
-      organizationId: project.organizationId,
-    });
-
     const devEnvironment = await createEnvironment(project.id, {
       type: "development",
     });
@@ -138,16 +118,9 @@ export const createProject = async (
 
     return updatedProject;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === PrismaErrorType.UniqueConstraintViolation
-    ) {
-      throw new InvalidInputError("A project with this name already exists in your organization");
-    }
-
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === PrismaErrorType.UniqueConstraintViolation) {
-        throw new InvalidInputError("A project with this name already exists in this organization");
+        throw new InvalidInputError("A project with this name already exists in your organization");
       }
       throw new DatabaseError(error.message);
     }
@@ -167,48 +140,18 @@ export const deleteProject = async (projectId: string): Promise<TProject> => {
     if (project) {
       // delete all files from storage related to this project
 
-      if (isS3Configured()) {
-        const s3FilesPromises = project.environments.map(async (environment) => {
-          return deleteS3FilesByEnvironmentId(environment.id);
-        });
+      const s3FilesPromises = project.environments.map(async (environment) => {
+        return deleteFilesByEnvironmentId(environment.id);
+      });
 
-        try {
-          await Promise.all(s3FilesPromises);
-        } catch (err) {
-          // fail silently because we don't want to throw an error if the files are not deleted
-          logger.error(err, "Error deleting S3 files");
-        }
-      } else {
-        const localFilesPromises = project.environments.map(async (environment) => {
-          return deleteLocalFilesByEnvironmentId(environment.id);
-        });
+      const s3FilesResult = await Promise.all(s3FilesPromises);
 
-        try {
-          await Promise.all(localFilesPromises);
-        } catch (err) {
+      for (const result of s3FilesResult) {
+        if (!result.ok) {
           // fail silently because we don't want to throw an error if the files are not deleted
-          logger.error(err, "Error deleting local files");
+          logger.error(result.error, "Error deleting S3 files");
         }
       }
-
-      projectCache.revalidate({
-        id: project.id,
-        organizationId: project.organizationId,
-      });
-
-      environmentCache.revalidate({
-        projectId: project.id,
-      });
-
-      project.environments.forEach((environment) => {
-        // revalidate project cache
-        projectCache.revalidate({
-          environmentId: environment.id,
-        });
-        environmentCache.revalidate({
-          id: environment.id,
-        });
-      });
     }
 
     return project;
@@ -216,6 +159,7 @@ export const deleteProject = async (projectId: string): Promise<TProject> => {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       throw new DatabaseError(error.message);
     }
+
     throw error;
   }
 };
